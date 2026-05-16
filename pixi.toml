@@ -1,0 +1,19 @@
+[workspace]
+name = "easy-delivery-co-head-tracking"
+version = "1.0.0"
+description = "Head tracking mod for Easy Delivery Co using CameraUnlock shared library"
+channels = ["conda-forge"]
+platforms = ["win-64"]
+
+[tasks]
+sync = "git submodule update --remote cameraunlock-core"
+# Manual: refresh vendored BepInEx from upstream within pinned range. Dev runs
+# this when bumping the bundled version, then commits. CI never refreshes.
+update-deps = "powershell -ExecutionPolicy Bypass -File scripts/update-deps.ps1"
+restore = "dotnet restore src/EasyDeliveryCoHeadTracking/EasyDeliveryCoHeadTracking.csproj"
+build = { cmd = "dotnet build src/EasyDeliveryCoHeadTracking/EasyDeliveryCoHeadTracking.csproj -c Release", depends-on = ["restore"] }
+install = { cmd = "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1 Release", depends-on = ["build"] }
+package = { cmd = "powershell -ExecutionPolicy Bypass -File scripts/package-release.ps1", depends-on = ["build"] }
+uninstall = "scripts\\uninstall.cmd"
+clean = "dotnet clean src/EasyDeliveryCoHeadTracking/EasyDeliveryCoHeadTracking.csproj"
+release = "powershell -ExecutionPolicy Bypass -File scripts/release.ps1"

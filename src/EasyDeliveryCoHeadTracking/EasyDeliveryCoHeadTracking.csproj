@@ -1,0 +1,136 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>EasyDeliveryCoHeadTracking</AssemblyName>
+    <RootNamespace>EasyDeliveryCoHeadTracking</RootNamespace>
+    <Version>0.1.0</Version>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <OutputType>Library</OutputType>
+    <Authors>itsloopyo</Authors>
+    <Description>Head tracking mod for Easy Delivery Co using CameraUnlock.Core</Description>
+  </PropertyGroup>
+
+  <!-- Fallback path detection -->
+  <PropertyGroup Condition="!Exists('libs\BepInEx.dll')">
+    <EasyDeliveryCoPath Condition="'$(EASY_DELIVERY_CO_PATH)' != ''">$(EASY_DELIVERY_CO_PATH)</EasyDeliveryCoPath>
+    <EasyDeliveryCoPath Condition="'$(EasyDeliveryCoPath)' == '' And Exists('C:\Program Files (x86)\Steam\steamapps\common\Easy Delivery Co')">C:\Program Files (x86)\Steam\steamapps\common\Easy Delivery Co</EasyDeliveryCoPath>
+    <EasyDeliveryCoPath Condition="'$(EasyDeliveryCoPath)' == '' And Exists('C:\Program Files\Steam\steamapps\common\Easy Delivery Co')">C:\Program Files\Steam\steamapps\common\Easy Delivery Co</EasyDeliveryCoPath>
+    <EasyDeliveryCoPath Condition="'$(EasyDeliveryCoPath)' == '' And Exists('C:\XboxGames\Easy Delivery Co\Content')">C:\XboxGames\Easy Delivery Co\Content</EasyDeliveryCoPath>
+    <BepInExPath>$(EasyDeliveryCoPath)\BepInEx\core</BepInExPath>
+    <ManagedPath>$(EasyDeliveryCoPath)\EasyDeliveryCo_Data\Managed</ManagedPath>
+  </PropertyGroup>
+
+  <!-- Set UnityEnginePath BEFORE ProjectReference -->
+  <PropertyGroup>
+    <UnityEnginePath Condition="Exists('libs\BepInEx.dll')">$(MSBuildThisFileDirectory)libs</UnityEnginePath>
+    <UnityEnginePath Condition="'$(UnityEnginePath)' == '' And Exists('$(ManagedPath)')">$(ManagedPath)</UnityEnginePath>
+  </PropertyGroup>
+
+  <!-- CameraUnlock shared libraries -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\cameraunlock-core\csharp\src\CameraUnlock.Core\CameraUnlock.Core.csproj" />
+    <ProjectReference Include="..\..\cameraunlock-core\csharp\src\CameraUnlock.Core.Unity\CameraUnlock.Core.Unity.csproj">
+      <AdditionalProperties>UnityEnginePath=$(UnityEnginePath)</AdditionalProperties>
+    </ProjectReference>
+  </ItemGroup>
+
+  <!-- Local libs folder (normal build) -->
+  <ItemGroup Condition="Exists('libs\BepInEx.dll') And '$(UseUnityStubs)' != 'true'">
+    <Reference Include="BepInEx">
+      <HintPath>libs\BepInEx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>libs\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>libs\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>libs\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>libs\UnityEngine.IMGUIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>libs\UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>libs\UnityEngine.TextRenderingModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>libs\UnityEngine.PhysicsModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- CI stub build -->
+  <ItemGroup Condition="Exists('libs\BepInEx.dll') And '$(UseUnityStubs)' == 'true'">
+    <Reference Include="BepInEx">
+      <HintPath>libs\BepInEx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>libs\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>libs\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- Fallback to game installation paths -->
+  <ItemGroup Condition="!Exists('libs\BepInEx.dll') And Exists('$(BepInExPath)')">
+    <Reference Include="BepInEx">
+      <HintPath>$(BepInExPath)\BepInEx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(BepInExPath)\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup Condition="!Exists('libs\BepInEx.dll') And Exists('$(ManagedPath)')">
+    <Reference Include="UnityEngine">
+      <HintPath>$(ManagedPath)\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(ManagedPath)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>$(ManagedPath)\UnityEngine.IMGUIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(ManagedPath)\UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>$(ManagedPath)\UnityEngine.TextRenderingModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>$(ManagedPath)\UnityEngine.PhysicsModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="libs\**" />
+    <None Remove="libs\**" />
+  </ItemGroup>
+</Project>

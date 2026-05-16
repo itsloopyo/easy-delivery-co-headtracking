@@ -1,0 +1,7 @@
+<Project>
+  <!-- Only point at libs/ when it actually holds the Unity DLLs; otherwise leave
+       UnityEnginePath empty so the host csproj's game-install fallback runs. -->
+  <PropertyGroup Condition="'$(UnityEnginePath)' == '' And Exists('$(MSBuildThisFileDirectory)src\EasyDeliveryCoHeadTracking\libs\UnityEngine.dll')">
+    <UnityEnginePath>$(MSBuildThisFileDirectory)src\EasyDeliveryCoHeadTracking\libs</UnityEnginePath>
+  </PropertyGroup>
+</Project>

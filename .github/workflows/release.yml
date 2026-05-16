@@ -1,0 +1,22 @@
+name: Release
+run-name: "Release ${{ github.ref_name }}"
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    uses: itsloopyo/cameraunlock-core/.github/workflows/release-bepinex-mod.yml@main
+    with:
+      csproj-path: src/EasyDeliveryCoHeadTracking/EasyDeliveryCoHeadTracking.csproj
+      project-name: "Head Tracking for Easy Delivery Co"
+      build-output-dir: src/EasyDeliveryCoHeadTracking/bin/Release/net48
+      mod-name: EasyDeliveryCoHeadTracking
+      mod-dlls: "EasyDeliveryCoHeadTracking.dll CameraUnlock.Core.dll CameraUnlock.Core.Unity.dll"
+      prebuilt-dir: prebuilt
+      artifact-paths: "src/EasyDeliveryCoHeadTracking/ cameraunlock-core scripts/install.cmd scripts/uninstall.cmd"
+      create-nexus-zip: "true"
+    permissions:
+      contents: write
