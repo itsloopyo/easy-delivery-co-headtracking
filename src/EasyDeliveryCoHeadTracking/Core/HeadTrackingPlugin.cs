@@ -1,11 +1,15 @@
 using BepInEx;
 using BepInEx.Logging;
+using CameraUnlock.Core.Aim;
 using CameraUnlock.Core.Data;
 using CameraUnlock.Core.Processing;
 using CameraUnlock.Core.Protocol;
+using CameraUnlock.Core.Tracking;
+using CameraUnlock.Core.Unity.Extensions;
 using CameraUnlock.Core.Unity.Rendering;
+using CameraUnlock.Core.Unity.Tracking;
 using CameraUnlock.Core.Unity.UI;
-using EasyDeliveryCoHeadTracking.Aim;
+using CameraUnlock.Core.Unity.Utilities;
 using EasyDeliveryCoHeadTracking.Camera;
 using EasyDeliveryCoHeadTracking.Config;
 
@@ -23,12 +27,10 @@ namespace EasyDeliveryCoHeadTracking.Core
         private const int ReticleBaseSizeAt1080p = 6;
         private const int ReticleOutlineWidthAt1080p = 2;
 
-        private enum TrackingMode { Full, RotationOnly, PositionOnly }
-
         public static HeadTrackingPlugin Instance { get; private set; }
         public new ManualLogSource Logger => base.Logger;
         public bool TrackingEnabled { get; private set; }
-        public CameraController CameraController => _cameraController;
+        public ViewMatrixTrackingController CameraController => _cameraController;
 
         private ConfigManager _config;
         private OpenTrackReceiver _receiver;
@@ -36,7 +38,7 @@ namespace EasyDeliveryCoHeadTracking.Core
         private PoseInterpolator _interpolator;
         private PositionProcessor _positionProcessor;
         private PositionInterpolator _positionInterpolator;
-        private CameraController _cameraController;
+        private ViewMatrixTrackingController _cameraController;
         private GameStateDetector _gameStateDetector;
         private InputHandler _inputHandler;
         private NotificationUI _notificationUI;
@@ -46,12 +48,10 @@ namespace EasyDeliveryCoHeadTracking.Core
         private TrackingMode _trackingMode;
         private bool _initialized;
 
-        // CalculateAimOffset is invoked from IMGUIReticle.OnGUI, which Unity fires multiple
+        // The aim offset is read from IMGUIReticle.OnGUI, which Unity fires multiple
         // times per frame (Layout + Repaint at minimum). The inputs (LastTrackingYaw/Pitch/Roll
-        // and FOV/aspect/screen) don't change between OnGUI events within a frame, so we
-        // memoize by Time.frameCount.
-        private int _aimOffsetCachedFrame = -1;
-        private UnityEngine.Vector2 _aimOffsetCached;
+        // and FOV/aspect/screen) don't change between OnGUI events within a frame.
+        private PerFrameCache<UnityEngine.Vector2> _aimOffsetCache;
 
         private void Awake()
         {
@@ -119,17 +119,17 @@ namespace EasyDeliveryCoHeadTracking.Core
 
         private void BuildCameraController()
         {
-            _cameraController = new CameraController(
+            _cameraController = new ViewMatrixTrackingController(
                 _receiver, _processor, _interpolator,
                 _positionProcessor, _positionInterpolator);
-            _cameraController.PositionEnabled = _config.PositionEnabled.Value;
-            _cameraController.RotationEnabled = true;
             _cameraController.WorldSpaceYaw = _config.WorldSpaceYaw.Value;
-            _cameraController.Enable();
 
-            // Seed _trackingMode from the actual initial state so the first cycle
-            // press transitions away from the current mode rather than back to it.
-            _trackingMode = _config.PositionEnabled.Value ? TrackingMode.Full : TrackingMode.RotationOnly;
+            // Seed the mode from config so the first cycle press transitions away
+            // from the current mode rather than back to it.
+            SetTrackingMode(_config.PositionEnabled.Value
+                ? TrackingMode.RotationAndPosition
+                : TrackingMode.RotationOnly);
+            _cameraController.Enable();
         }
 
         private void BuildGameStateDetector()
@@ -153,6 +153,7 @@ namespace EasyDeliveryCoHeadTracking.Core
         {
             _notificationUI = new NotificationUI();
             _reticleEnabled = _config.ShowReticle.Value;
+            _aimOffsetCache = new PerFrameCache<UnityEngine.Vector2>(ComputeAimOffset);
 
             _aimReticle = gameObject.AddComponent<IMGUIReticle>();
             _aimReticle.Style = ReticleStyle.Dot;
@@ -162,7 +163,7 @@ namespace EasyDeliveryCoHeadTracking.Core
             _aimReticle.OutlineColor = UnityEngine.Color.black;
             _aimReticle.IsVisible = _reticleEnabled;
             _aimReticle.InitializeWithOffset(
-                getOffset: CalculateAimOffset,
+                getOffset: _aimOffsetCache.Get,
                 shouldDraw: () => _gameStateDetector.IsGameplayActive
                                   && _reticleEnabled
                                   && _cameraController.IsApplyingTracking);
@@ -170,11 +171,11 @@ namespace EasyDeliveryCoHeadTracking.Core
 
         private string BuildHotkeyInfo()
         {
-            return $"[{_inputHandler.ToggleKey}/Ctrl+Shift+{InputHandler.ToggleChordLetter}] Toggle, " +
-                   $"[{_inputHandler.RecenterKey}/Ctrl+Shift+{InputHandler.RecenterChordLetter}] Recenter, " +
-                   $"[{_inputHandler.CycleTrackingModeKey}/Ctrl+Shift+{InputHandler.CycleTrackingModeChordLetter}] Cycle Mode, " +
-                   $"[{_inputHandler.YawModeKey}/Ctrl+Shift+{InputHandler.YawModeChordLetter}] Yaw, " +
-                   $"[{_inputHandler.ToggleReticleKey}/Ctrl+Shift+{InputHandler.ToggleReticleChordLetter}] Reticle";
+            return $"[{_inputHandler.ToggleKey}/Ctrl+Shift+{ChordHotkeys.ToggleLetter}] Toggle, " +
+                   $"[{_inputHandler.RecenterKey}/Ctrl+Shift+{ChordHotkeys.RecenterLetter}] Recenter, " +
+                   $"[{_inputHandler.CycleTrackingModeKey}/Ctrl+Shift+{ChordHotkeys.PositionLetter}] Cycle Mode, " +
+                   $"[{_inputHandler.YawModeKey}/Ctrl+Shift+{ChordHotkeys.FourthToggleLetter}] Yaw, " +
+                   $"[{_inputHandler.ToggleReticleKey}/Ctrl+Shift+{ChordHotkeys.FifthToggleLetter}] Reticle";
         }
 
         private void Update()
@@ -283,40 +284,18 @@ namespace EasyDeliveryCoHeadTracking.Core
 
         private void HandleCycleTrackingMode()
         {
-            _trackingMode = NextMode(_trackingMode);
+            SetTrackingMode((TrackingMode)(((int)_trackingMode + 1) % 3));
 
-            string label;
-            switch (_trackingMode)
-            {
-                case TrackingMode.Full:
-                    _cameraController.RotationEnabled = true;
-                    _cameraController.PositionEnabled = true;
-                    label = "Tracking: Full (rotation + position)";
-                    break;
-                case TrackingMode.RotationOnly:
-                    _cameraController.RotationEnabled = true;
-                    _cameraController.PositionEnabled = false;
-                    label = "Tracking: Rotation only";
-                    break;
-                default:
-                    _cameraController.RotationEnabled = false;
-                    _cameraController.PositionEnabled = true;
-                    label = "Tracking: Position only";
-                    break;
-            }
-
+            string label = "Tracking: " + _trackingMode.Description();
             _notificationUI.ShowNotification(label, NotificationType.Info, StatusNotificationSeconds);
             Logger.LogInfo(label);
         }
 
-        private static TrackingMode NextMode(TrackingMode mode)
+        private void SetTrackingMode(TrackingMode mode)
         {
-            switch (mode)
-            {
-                case TrackingMode.Full: return TrackingMode.RotationOnly;
-                case TrackingMode.RotationOnly: return TrackingMode.PositionOnly;
-                default: return TrackingMode.Full;
-            }
+            _trackingMode = mode;
+            _cameraController.RotationEnabled = mode != TrackingMode.PositionOnly;
+            _cameraController.PositionEnabled = mode != TrackingMode.RotationOnly;
         }
 
         private void HandleToggleYawMode()
@@ -329,30 +308,28 @@ namespace EasyDeliveryCoHeadTracking.Core
             Logger.LogInfo($"Yaw mode: {(_cameraController.WorldSpaceYaw ? "world-locked" : "camera-local")}");
         }
 
-        private UnityEngine.Vector2 CalculateAimOffset()
+        private UnityEngine.Vector2 ComputeAimOffset()
         {
-            int frame = UnityEngine.Time.frameCount;
-            if (frame == _aimOffsetCachedFrame)
-                return _aimOffsetCached;
-
             var cam = _cameraController.MainCamera;
             if (cam == null)
-            {
-                _aimOffsetCached = UnityEngine.Vector2.zero;
-            }
-            else
-            {
-                _aimOffsetCached = ReticleAimProjection.Compute(
-                    yaw: _cameraController.LastTrackingYaw,
-                    pitch: _cameraController.LastTrackingPitch,
-                    roll: _cameraController.LastTrackingRoll,
-                    verticalFovDegrees: cam.fieldOfView,
-                    aspect: cam.aspect,
-                    screenWidth: UnityEngine.Screen.width,
-                    screenHeight: UnityEngine.Screen.height);
-            }
-            _aimOffsetCachedFrame = frame;
-            return _aimOffsetCached;
+                return UnityEngine.Vector2.zero;
+
+            float horizontalFov = ScreenOffsetCalculator.CalculateHorizontalFov(cam.fieldOfView, cam.aspect);
+            float offsetX, offsetY;
+            ScreenOffsetCalculator.Calculate(
+                _cameraController.LastTrackingYaw,
+                _cameraController.LastTrackingPitch,
+                _cameraController.LastTrackingRoll,
+                horizontalFov,
+                cam.fieldOfView,
+                UnityEngine.Screen.width,
+                UnityEngine.Screen.height,
+                compensationScale: 1f,
+                out offsetX,
+                out offsetY);
+
+            // ScreenOffsetCalculator Y is up-positive, matching IMGUIReticle's offset convention.
+            return new UnityEngine.Vector2(offsetX, offsetY);
         }
 
         private void OnGameStateChanged(GameState newState)

@@ -31,7 +31,7 @@ The installer auto-detects your game via Steam registry lookup. If it can't find
 
 For users who prefer to place files by hand, or who download the Nexus ZIP (which contains only the mod DLLs):
 
-1. Install [BepInEx 5.4.23.2 x64](https://github.com/BepInEx/BepInEx/releases/tag/v5.4.23.2) to your game folder
+1. Install [BepInEx 5.4.23.5 x64](https://github.com/BepInEx/BepInEx/releases/tag/v5.4.23.5) to your game folder
 2. Run the game once to let BepInEx initialize
 3. Copy these DLLs to `BepInEx/plugins/`:
    - `EasyDeliveryCoHeadTracking.dll`

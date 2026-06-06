@@ -1,4 +1,5 @@
 using System;
+using CameraUnlock.Core.Unity.Extensions;
 using EasyDeliveryCoHeadTracking.Config;
 using UnityEngine;
 
@@ -6,14 +7,6 @@ namespace EasyDeliveryCoHeadTracking.Core
 {
     public class InputHandler
     {
-        // Chord letters drawn from the T/Y/U/G/H/J nav cluster. Centralized so the
-        // help string and the dispatch table can't drift apart.
-        public const KeyCode ToggleChordLetter = KeyCode.Y;
-        public const KeyCode RecenterChordLetter = KeyCode.T;
-        public const KeyCode ToggleReticleChordLetter = KeyCode.U;
-        public const KeyCode CycleTrackingModeChordLetter = KeyCode.G;
-        public const KeyCode YawModeChordLetter = KeyCode.H;
-
         private readonly ConfigManager _config;
 
         public event Action OnTogglePressed;
@@ -41,25 +34,17 @@ namespace EasyDeliveryCoHeadTracking.Core
             if (!Input.anyKeyDown)
                 return;
 
-            Dispatch(_config.ToggleKey.Value, ToggleChordLetter, OnTogglePressed);
-            Dispatch(_config.RecenterKey.Value, RecenterChordLetter, OnRecenterPressed);
-            Dispatch(_config.ToggleReticleKey.Value, ToggleReticleChordLetter, OnToggleReticlePressed);
-            Dispatch(_config.CycleTrackingModeKey.Value, CycleTrackingModeChordLetter, OnCycleTrackingModePressed);
-            Dispatch(_config.YawModeKey.Value, YawModeChordLetter, OnToggleYawModePressed);
+            Dispatch(_config.ToggleKey.Value, ChordHotkeys.ToggleLetter, OnTogglePressed);
+            Dispatch(_config.RecenterKey.Value, ChordHotkeys.RecenterLetter, OnRecenterPressed);
+            Dispatch(_config.ToggleReticleKey.Value, ChordHotkeys.FifthToggleLetter, OnToggleReticlePressed);
+            Dispatch(_config.CycleTrackingModeKey.Value, ChordHotkeys.PositionLetter, OnCycleTrackingModePressed);
+            Dispatch(_config.YawModeKey.Value, ChordHotkeys.FourthToggleLetter, OnToggleYawModePressed);
         }
 
         private static void Dispatch(KeyCode primary, KeyCode chordLetter, Action handler)
         {
-            if (Input.GetKeyDown(primary) || ChordPressed(chordLetter))
+            if (ChordHotkeys.IsActionPressed(primary, chordLetter))
                 handler?.Invoke();
-        }
-
-        private static bool ChordPressed(KeyCode letter)
-        {
-            if (!Input.GetKeyDown(letter)) return false;
-            bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
-            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-            return ctrl && shift;
         }
     }
 }
