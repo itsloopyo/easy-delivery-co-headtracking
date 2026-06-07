@@ -20,7 +20,7 @@ namespace EasyDeliveryCoHeadTracking.Core
     {
         public const string PluginGUID = "com.cameraunlock.easydeliveryco.headtracking";
         public const string PluginName = "Easy Delivery Co Head Tracking";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "0.1.1";
 
         private const float StartupNotificationSeconds = 4f;
         private const float StatusNotificationSeconds = 1.5f;
