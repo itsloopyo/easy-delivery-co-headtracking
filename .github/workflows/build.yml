@@ -31,220 +31,37 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Download BepInEx
+      - name: Setup pixi
+        uses: prefix-dev/setup-pixi@v0.8.1
+
+      - name: Build and package
+        shell: pwsh
+        run: pixi run package
+
+      - name: Stage installer contents for artifact
         shell: pwsh
         run: |
-          Write-Host "Downloading BepInEx 5.4.23.4..." -ForegroundColor Cyan
-
-          $bepinexUrl = "https://github.com/BepInEx/BepInEx/releases/download/v5.4.23.4/BepInEx_win_x64_5.4.23.4.zip"
-          $expectedHash = "F881201B79DA03E513BF97CDF39607FFA7F9E0D31A519B1AEECA8EB60F8309E7"
-
-          Invoke-WebRequest -Uri $bepinexUrl -OutFile bepinex.zip
-
-          $actualHash = (Get-FileHash -Path bepinex.zip -Algorithm SHA256).Hash
-          if ($actualHash -ne $expectedHash) {
-            Write-Host "::error::BepInEx hash mismatch!"
-            Write-Host "::error::Expected: $expectedHash"
-            Write-Host "::error::Got: $actualHash"
+          $zip = Get-ChildItem release/*-installer.zip -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $zip) {
+            Write-Host "::error::No installer ZIP was produced by 'pixi run package'"
             exit 1
           }
-
-          Write-Host "BepInEx download verified" -ForegroundColor Green
-
-          $libsPath = "src/EasyDeliveryCoHeadTracking/libs"
-          Expand-Archive -Path bepinex.zip -DestinationPath bepinex-temp
-          New-Item -ItemType Directory -Path $libsPath -Force | Out-Null
-          Copy-Item bepinex-temp/BepInEx/core/BepInEx.dll $libsPath/
-          Copy-Item bepinex-temp/BepInEx/core/0Harmony.dll $libsPath/
-
-          Remove-Item bepinex.zip
-          Remove-Item -Recurse bepinex-temp
-
-          Write-Host "BepInEx DLLs extracted to $libsPath" -ForegroundColor Green
-
-      - name: Create Unity stub assemblies for CI
-        shell: pwsh
-        run: |
-          Write-Host "Creating Unity stub assemblies for CI build..." -ForegroundColor Cyan
-
-          $libsPath = "src/EasyDeliveryCoHeadTracking/libs"
-
-          # Build UnityEngine.dll with all types from the checked-in UnityStubs.cs
-          $projContent = @"
-          <Project Sdk="Microsoft.NET.Sdk">
-            <PropertyGroup>
-              <TargetFramework>net48</TargetFramework>
-              <LangVersion>latest</LangVersion>
-              <AssemblyName>UnityEngine</AssemblyName>
-              <NoWarn>CS0169;CS0649;CS0067;CS0660;CS0661</NoWarn>
-            </PropertyGroup>
-            <ItemGroup>
-              <Compile Include="UnityStubs.cs" />
-            </ItemGroup>
-          </Project>
-          "@
-          $projPath = Join-Path $libsPath "Stub_UnityEngine.csproj"
-          $projContent | Out-File -FilePath $projPath -Encoding utf8
-
-          dotnet build $projPath -c Release -o $libsPath --nologo -v q
-          if ($LASTEXITCODE -ne 0) {
-              Write-Host "::error::Failed to build UnityEngine stub"
-              exit 1
-          }
-          Write-Host "  Created UnityEngine.dll (with types)" -ForegroundColor Green
-          Remove-Item $projPath -ErrorAction SilentlyContinue
-
-          # Build empty stubs for other Unity modules (to satisfy reference requirements)
-          $emptySource = "// Empty stub assembly"
-          $emptySourcePath = Join-Path $libsPath "EmptyStub.cs"
-          $emptySource | Out-File -FilePath $emptySourcePath -Encoding utf8
-
-          $emptyModules = @(
-              "UnityEngine.CoreModule",
-              "UnityEngine.IMGUIModule",
-              "UnityEngine.PhysicsModule",
-              "UnityEngine.TextRenderingModule",
-              "UnityEngine.InputLegacyModule"
-          )
-
-          foreach ($moduleName in $emptyModules) {
-              $emptyProjContent = @"
-          <Project Sdk="Microsoft.NET.Sdk">
-            <PropertyGroup>
-              <TargetFramework>net48</TargetFramework>
-              <LangVersion>latest</LangVersion>
-              <AssemblyName>$moduleName</AssemblyName>
-            </PropertyGroup>
-            <ItemGroup>
-              <Compile Include="EmptyStub.cs" />
-            </ItemGroup>
-          </Project>
-          "@
-              $emptyProjPath = Join-Path $libsPath "Stub_$moduleName.csproj"
-              $emptyProjContent | Out-File -FilePath $emptyProjPath -Encoding utf8
-
-              dotnet build $emptyProjPath -c Release -o $libsPath --nologo -v q
-              if ($LASTEXITCODE -ne 0) {
-                  Write-Host "::error::Failed to build $moduleName stub"
-                  exit 1
-              }
-              Write-Host "  Created $moduleName.dll (empty)" -ForegroundColor Green
-              Remove-Item $emptyProjPath -ErrorAction SilentlyContinue
-          }
-
-          # Cleanup temp files
-          Remove-Item $emptySourcePath -ErrorAction SilentlyContinue
-          Remove-Item (Join-Path $libsPath "*.deps.json") -Force -ErrorAction SilentlyContinue
-          Remove-Item (Join-Path $libsPath "*.pdb") -Force -ErrorAction SilentlyContinue
-          Remove-Item (Join-Path $libsPath "obj") -Recurse -Force -ErrorAction SilentlyContinue
-
-          Write-Host "Unity stub assemblies created successfully" -ForegroundColor Green
-
-      - name: Restore NuGet packages
-        shell: pwsh
-        run: |
-          $unityPath = "${{ github.workspace }}\src\EasyDeliveryCoHeadTracking\libs"
-          dotnet restore src/EasyDeliveryCoHeadTracking/EasyDeliveryCoHeadTracking.csproj "-p:UnityEnginePath=$unityPath"
-
-      - name: Build Debug
-        shell: pwsh
-        run: |
-          Write-Host "Building debug configuration..." -ForegroundColor Cyan
-          $unityPath = "${{ github.workspace }}\src\EasyDeliveryCoHeadTracking\libs"
-          dotnet build src/EasyDeliveryCoHeadTracking/EasyDeliveryCoHeadTracking.csproj --configuration Debug "-p:UnityEnginePath=$unityPath"
-
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "::error::Debug build failed"
-            exit 1
-          }
-
-          Write-Host "Debug build succeeded" -ForegroundColor Green
-
-      - name: Build Release
-        shell: pwsh
-        run: |
-          Write-Host "Building release configuration..." -ForegroundColor Cyan
-          $unityPath = "${{ github.workspace }}\src\EasyDeliveryCoHeadTracking\libs"
-          dotnet build src/EasyDeliveryCoHeadTracking/EasyDeliveryCoHeadTracking.csproj --configuration Release "-p:UnityEnginePath=$unityPath"
-
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "::error::Release build failed"
-            exit 1
-          }
-
-          Write-Host "Release build succeeded" -ForegroundColor Green
-
-      - name: Verify build outputs
-        shell: pwsh
-        run: |
-          Write-Host "Verifying build outputs..." -ForegroundColor Cyan
-
-          $requiredFiles = @(
-            "src/EasyDeliveryCoHeadTracking/bin/Debug/net48/EasyDeliveryCoHeadTracking.dll",
-            "src/EasyDeliveryCoHeadTracking/bin/Release/net48/EasyDeliveryCoHeadTracking.dll"
-          )
-
-          $allExist = $true
-          foreach ($file in $requiredFiles) {
-            if (Test-Path $file) {
-              $size = (Get-Item $file).Length / 1KB
-              Write-Host "  $file ($([math]::Round($size, 2)) KB)" -ForegroundColor Green
-            } else {
-              Write-Host "  Missing: $file" -ForegroundColor Red
-              $allExist = $false
-            }
-          }
-
-          if (-not $allExist) {
-            Write-Host "::error::Some build outputs are missing"
-            exit 1
-          }
-
-          Write-Host "All build outputs verified" -ForegroundColor Green
-
-      - name: Package installer
-        shell: pwsh
-        run: |
-          Write-Host "Packaging installer ZIP..." -ForegroundColor Cyan
-          powershell -ExecutionPolicy Bypass -File scripts/package-release.ps1
-
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "::error::Packaging failed"
-            exit 1
-          }
-
-          Write-Host "Package created" -ForegroundColor Green
-
-      - name: Stage installer contents for artifact upload
-        shell: pwsh
-        run: |
-          Write-Host "Staging installer contents..." -ForegroundColor Cyan
-          $installerZip = Get-ChildItem -Path release -Filter '*-installer.zip' | Select-Object -First 1
-          if (-not $installerZip) {
-            Write-Host "::error::No installer ZIP found in release/"
-            exit 1
-          }
-          $stageDir = "release/artifact-contents"
-          New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
-          Expand-Archive -Path $installerZip.FullName -DestinationPath $stageDir -Force
-          Write-Host "Staged contents from $($installerZip.Name)" -ForegroundColor Green
+          $dest = "release/artifact-contents"
+          New-Item -ItemType Directory -Path $dest -Force | Out-Null
+          Expand-Archive -Path $zip.FullName -DestinationPath $dest -Force
+          Write-Host "Staged $($zip.Name)" -ForegroundColor Green
 
       - name: Compute artifact name from ref
-        id: artifact-name
+        id: artifact
         shell: pwsh
-        env:
-          BRANCH_REF: ${{ github.head_ref || github.ref_name }}
         run: |
-          $branch = $env:BRANCH_REF
-          $sanitized = $branch -replace '[^A-Za-z0-9._-]', '-'
-          $name = "EasyDeliveryCoHeadTracking-$sanitized"
-          Write-Host "Artifact name: $name"
-          "name=$name" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          $branch = "${{ github.ref_name }}" -replace '[^A-Za-z0-9._-]', '-'
+          echo "name=EasyDeliveryCoHeadTracking-$branch" >> $env:GITHUB_OUTPUT
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ steps.artifact-name.outputs.name }}
+          name: ${{ steps.artifact.outputs.name }}
           path: release/artifact-contents/
           retention-days: 14
           if-no-files-found: error

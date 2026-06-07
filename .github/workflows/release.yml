@@ -8,15 +8,119 @@ on:
 
 jobs:
   release:
-    uses: itsloopyo/cameraunlock-core/.github/workflows/release-bepinex-mod.yml@main
-    with:
-      csproj-path: src/EasyDeliveryCoHeadTracking/EasyDeliveryCoHeadTracking.csproj
-      project-name: "Head Tracking for Easy Delivery Co"
-      build-output-dir: src/EasyDeliveryCoHeadTracking/bin/Release/net48
-      mod-name: EasyDeliveryCoHeadTracking
-      mod-dlls: "EasyDeliveryCoHeadTracking.dll CameraUnlock.Core.dll CameraUnlock.Core.Unity.dll"
-      prebuilt-dir: prebuilt
-      artifact-paths: "src/EasyDeliveryCoHeadTracking/ cameraunlock-core scripts/install.cmd scripts/uninstall.cmd"
-      create-nexus-zip: "true"
+    runs-on: windows-latest
     permissions:
       contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Extract version from tag
+        id: version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if ($tag -notmatch '^v(\d+\.\d+\.\d+)$') {
+            Write-Host "::error::Tag format invalid. Use semantic versioning: v1.2.3"
+            exit 1
+          }
+          $version = $matches[1]
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+          Write-Host "Version: $version"
+
+      - name: Validate version matches csproj
+        shell: pwsh
+        run: |
+          $csproj = Get-Content "src/EasyDeliveryCoHeadTracking/EasyDeliveryCoHeadTracking.csproj" -Raw
+          $match = [regex]::Match($csproj, '<Version>([^<]+)</Version>')
+          if (-not $match.Success) {
+            Write-Host "::error::No <Version> found in csproj"
+            exit 1
+          }
+          $csprojVersion = $match.Groups[1].Value
+          $tagVersion = "${{ steps.version.outputs.version }}"
+          Write-Host "csproj version: $csprojVersion"
+          Write-Host "Tag version: $tagVersion"
+          if ($csprojVersion -ne $tagVersion) {
+            Write-Host "::error::Version mismatch! Tag is v$tagVersion but csproj has $csprojVersion"
+            exit 1
+          }
+          Write-Host "Version matches!" -ForegroundColor Green
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Setup pixi
+        uses: prefix-dev/setup-pixi@v0.8.1
+
+      - name: Build and package
+        shell: pwsh
+        run: pixi run package
+
+      - name: Generate release notes
+        shell: pwsh
+        run: |
+          $artifactPaths = @(
+            "src/EasyDeliveryCoHeadTracking/",
+            "cameraunlock-core",
+            "scripts/install.cmd",
+            "scripts/uninstall.cmd"
+          )
+
+          & cameraunlock-core/scripts/generate-release-notes.ps1 `
+            -Version "${{ steps.version.outputs.version }}" `
+            -ArtifactPaths $artifactPaths `
+            -ProjectName "Head Tracking for Easy Delivery Co"
+
+      - name: Find release ZIPs
+        id: find_zips
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $installerZip = "release/EasyDeliveryCoHeadTracking-v$version-installer.zip"
+          $nexusZip = "release/EasyDeliveryCoHeadTracking-v$version-nexus.zip"
+
+          if (-not (Test-Path $installerZip)) {
+            Write-Host "::error::Installer ZIP not found at $installerZip"
+            exit 1
+          }
+          if (-not (Test-Path $nexusZip)) {
+            Write-Host "::error::Nexus ZIP not found at $nexusZip"
+            exit 1
+          }
+
+          echo "installer_zip=$installerZip" >> $env:GITHUB_OUTPUT
+          echo "nexus_zip=$nexusZip" >> $env:GITHUB_OUTPUT
+          Write-Host "Found: $installerZip"
+          Write-Host "Found: $nexusZip"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.version.outputs.tag }}"
+          $installerZip = "${{ steps.find_zips.outputs.installer_zip }}"
+          $nexusZip = "${{ steps.find_zips.outputs.nexus_zip }}"
+
+          Write-Host "Creating GitHub Release for $tag..." -ForegroundColor Cyan
+
+          gh release create $tag `
+            --title "Head Tracking for Easy Delivery Co $tag" `
+            --notes-file "release-notes.txt" `
+            $installerZip `
+            $nexusZip
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::Failed to create GitHub release"
+            exit 1
+          }
+
+          Write-Host "Release created successfully!" -ForegroundColor Green
