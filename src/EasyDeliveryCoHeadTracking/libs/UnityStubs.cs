@@ -81,9 +81,9 @@ namespace UnityEngine {
     public enum HideFlags { None = 0, HideInHierarchy = 1, HideInInspector = 2, DontSaveInEditor = 4, NotEditable = 8, DontSaveInBuild = 16, DontUnloadUnusedAsset = 32, DontSave = 52, HideAndDontSave = 61 }
     public class Camera : Behaviour {
         public delegate void CameraCallback(Camera cam);
-        public static event CameraCallback onPreCull;
-        public static event CameraCallback onPreRender;
-        public static event CameraCallback onPostRender;
+        public static CameraCallback onPreCull;
+        public static CameraCallback onPreRender;
+        public static CameraCallback onPostRender;
         public static Camera main { get; }
         public static Camera current { get; }
         public static Camera[] allCameras { get; }
@@ -552,7 +552,7 @@ namespace UnityEngine.SceneManagement {
         public static Scene GetActiveScene() => default;
         public static void LoadScene(string sceneName) { }
         public static void LoadScene(int sceneBuildIndex) { }
-        public static event System.Action<Scene, LoadSceneMode> sceneLoaded;
+        public static event UnityEngine.Events.UnityAction<Scene, LoadSceneMode> sceneLoaded;
     }
 }
 namespace UnityEngine.Events {
@@ -560,6 +560,7 @@ namespace UnityEngine.Events {
     public class UnityEvent<T0> { public void AddListener(UnityAction<T0> call) { } public void RemoveListener(UnityAction<T0> call) { } public void Invoke(T0 arg0) { } }
     public delegate void UnityAction();
     public delegate void UnityAction<T0>(T0 arg0);
+    public delegate void UnityAction<T0, T1>(T0 arg0, T1 arg1);
 }
 namespace UnityEngine.UI {
     public abstract class Graphic : UnityEngine.Behaviour {
