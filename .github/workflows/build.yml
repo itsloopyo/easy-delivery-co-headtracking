@@ -27,7 +27,7 @@ jobs:
           submodules: recursive
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
 
@@ -36,7 +36,7 @@ jobs:
       # post-install `pixi list` errors on an empty environment in pixi 0.70+.
       # `pixi run package` resolves the env lazily anyway.
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.1
+        uses: prefix-dev/setup-pixi@v0.9.6
         with:
           run-install: false
 
