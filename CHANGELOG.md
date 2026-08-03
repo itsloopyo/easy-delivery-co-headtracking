@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.2] - 2026-08-03
+
+### Added
+
+- recenter on remote request from tracker app
+
+### Fixed
+
+- show full control set in pixi install via shared -Controls
+
 ## [0.1.1] - 2026-06-07
 
 ### Added
