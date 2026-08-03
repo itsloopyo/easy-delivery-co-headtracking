@@ -183,6 +183,10 @@ namespace EasyDeliveryCoHeadTracking.Core
             // Awake may have failed partway, leaving a subset of fields null.
             // A single guard avoids per-field NRE risk if init ordering changes.
             if (!_initialized) return;
+            if (_receiver.TryConsumeRecenterRequest())
+            {
+                HandleRecenter();
+            }
             _inputHandler.CheckInput();
             _gameStateDetector.Update();
             _notificationUI.Update();
