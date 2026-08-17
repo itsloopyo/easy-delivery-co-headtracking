@@ -58,7 +58,7 @@ No special hardware needed - OpenTrack's built-in **neuralnet tracker** uses any
 
 ### Phone App Setup
 
-This mod includes built-in smoothing for network jitter, so you can send directly from your phone on port 4242 without needing OpenTrack on PC.
+This mod smooths network jitter with `RemoteSmoothing` (default 0.15), so you can send directly from your phone on port 4242 without needing OpenTrack on PC.
 
 1. Install an OpenTrack-compatible head tracking app (SmoothTrack, Head Tracker, etc.)
 2. Configure it to send to your PC's IP on port 4242 (run `ipconfig` to find it)
@@ -91,46 +91,78 @@ The `Ctrl+Shift+<letter>` chords are provided for keyboards without a navigation
 
 The mod creates a config file at `BepInEx/config/com.cameraunlock.easydeliveryco.headtracking.cfg` on first run. Edit it to customize:
 
+A comment has to sit on its own line. BepInEx splits each line at the first `=`
+and takes everything after it as the value, so a trailing `# note` becomes part
+of the value, the conversion fails, and the entry silently keeps its default -
+the only trace is a line in `BepInEx/LogOutput.log`. Put explanations above the
+key, never after it.
+
 ```ini
 [General]
-EnabledOnStartup = true          # Start with tracking enabled
-ShowStartupNotification = true   # Show controls on startup
-WorldSpaceYaw = true             # true = horizon-locked yaw, false = camera-local
+# Start with tracking enabled
+EnabledOnStartup = true
+# Show controls on startup
+ShowStartupNotification = true
+# true = horizon-locked yaw, false = camera-local
+WorldSpaceYaw = true
 
 [UI]
 ShowConnectionNotifications = true
-ShowReticle = false              # Aim reticle (not needed for driving)
+# Aim reticle (not needed for driving)
+ShowReticle = false
 
 [Keybindings]
 ToggleKey = End
 RecenterKey = Home
 ToggleReticleKey = Insert
-CycleTrackingModeKey = PageUp    # Cycle: full -> rotation only -> position only
-YawModeKey = PageDown            # Toggle world-locked vs camera-local yaw
+# Cycle: full -> rotation only -> position only
+CycleTrackingModeKey = PageUp
+# Toggle world-locked vs camera-local yaw
+YawModeKey = PageDown
 
 [Network]
-UDPPort = 4242                   # Must match OpenTrack output port
+# Must match OpenTrack output port
+UDPPort = 4242
 
 [Sensitivity]
-YawSensitivity = 1.0             # Horizontal rotation (0.1-3.0)
-PitchSensitivity = 1.0           # Vertical rotation (0.1-3.0)
-RollSensitivity = 1.0            # Head tilt (0.0-3.0)
+# Horizontal rotation (0.1-3.0)
+YawSensitivity = 1.0
+# Vertical rotation (0.1-3.0)
+PitchSensitivity = 1.0
+# Head tilt (0.0-3.0)
+RollSensitivity = 1.0
 
 [Smoothing]
-Smoothing = 0.0                  # 0 = responsive, 1 = heavy (adds latency)
+# Tracker on this machine (loopback). 0 = none, 1 = heavy
+LocalSmoothing = 0.0
+# Tracker on a remote network device. 0 = none, 1 = heavy
+RemoteSmoothing = 0.15
 
 [Position]
-PositionEnabled = true           # Enable lean/positional tracking
-PositionSensitivityX = 1.0       # Lateral sensitivity (0.0-5.0)
-PositionSensitivityY = 1.0       # Vertical sensitivity (0.0-5.0)
-PositionSensitivityZ = 1.0       # Depth sensitivity (0.0-5.0)
-PositionLimitX = 0.30            # Max lateral offset in meters
-PositionLimitY = 0.20            # Max vertical offset in meters
-PositionLimitZ = 0.40            # Max forward offset in meters
-PositionLimitZBack = 0.10        # Max backward offset in meters
-PositionSmoothing = 0.15         # Position smoothing (0.0-1.0)
-TrackerPivotForward = 0.08       # Neck-to-face distance, compensates yaw orbit
+# Enable lean/positional tracking
+PositionEnabled = true
+# Lateral sensitivity (0.0-5.0)
+PositionSensitivityX = 1.0
+# Vertical sensitivity (0.0-5.0)
+PositionSensitivityY = 1.0
+# Depth sensitivity (0.0-5.0)
+PositionSensitivityZ = 1.0
+# Max lateral offset in meters
+PositionLimitX = 0.30
+# Max vertical offset in meters
+PositionLimitY = 0.20
+# Max forward offset in meters
+PositionLimitZ = 0.40
+# Max backward offset in meters
+PositionLimitZBack = 0.10
+# Neck-to-face distance, compensates yaw orbit
+TrackerPivotForward = 0.08
 ```
+
+Smoothing is picked per connection from the tracker's source address: a tracker
+running on this machine (loopback) uses `LocalSmoothing`, a tracker on another
+device over the network uses `RemoteSmoothing`. Both cover rotation and
+position, so there is no separate position smoothing setting.
 
 ## Troubleshooting
 
@@ -146,13 +178,16 @@ TrackerPivotForward = 0.08       # Neck-to-face distance, compensates yaw orbit
 - Press `End` to enable tracking, `Home` to recenter
 - Check that your firewall isn't blocking UDP port 4242
 
+**A config edit had no effect:**
+- Make sure nothing follows the value on the line. A trailing `# comment` is read as part of the value, the entry falls back to its default, and the game gives no sign of it. `BepInEx/LogOutput.log` records the failed conversion.
+
 **Jittery / unstable tracking:**
-- Increase `Smoothing` in the config (try 0.2-0.4)
+- Increase `RemoteSmoothing` (phone/network tracker) or `LocalSmoothing` (tracker on this PC) in the config (try 0.2-0.4), with nothing after the value on the line
 - For wireless phone trackers, prefer 5GHz Wi-Fi or USB tethering
 - Lower the tracker's send rate if it's saturating the network
 
 **Wrong rotation axis:**
-- Pitch inverted: set `PitchSensitivity` to a negative value, or invert pitch in OpenTrack's output mapping
+- Pitch inverted: invert pitch in OpenTrack's output mapping. This mod has no invert settings; the axis corrections it needs are applied internally and are not configurable. `PitchSensitivity` is a magnitude only, clamped to `0.1`-`3.0`, so a negative value does not flip the axis, it is clamped to `0.1` and leaves pitch nearly dead
 - Yaw feels wrong at extreme up/down angles: toggle between world-locked and camera-local yaw with `Page Down`. World-locked (default) is horizon-stable; camera-local follows the camera's current up-axis
 
 ## Updating
