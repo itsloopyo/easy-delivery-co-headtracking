@@ -30,7 +30,8 @@ namespace EasyDeliveryCoHeadTracking.Config
         public ConfigEntry<float> RollSensitivity { get; private set; }
 
         // Smoothing
-        public ConfigEntry<float> Smoothing { get; private set; }
+        public ConfigEntry<float> LocalSmoothing { get; private set; }
+        public ConfigEntry<float> RemoteSmoothing { get; private set; }
 
         // Position
         public ConfigEntry<bool> PositionEnabled { get; private set; }
@@ -41,7 +42,6 @@ namespace EasyDeliveryCoHeadTracking.Config
         public ConfigEntry<float> PositionLimitY { get; private set; }
         public ConfigEntry<float> PositionLimitZ { get; private set; }
         public ConfigEntry<float> PositionLimitZBack { get; private set; }
-        public ConfigEntry<float> PositionSmoothing { get; private set; }
         public ConfigEntry<float> TrackerPivotForward { get; private set; }
 
         public void Initialize(ConfigFile config)
@@ -110,10 +110,16 @@ namespace EasyDeliveryCoHeadTracking.Config
                     "Multiplier for head tilt (ear to shoulder)",
                     new AcceptableValueRange<float>(0.0f, 3.0f)));
 
-            Smoothing = config.Bind(
-                "Smoothing", "Smoothing", 0.0f,
+            LocalSmoothing = config.Bind(
+                "Smoothing", "LocalSmoothing", 0.0f,
                 new ConfigDescription(
-                    "Smoothing level (0 = responsive, 1 = heavy smoothing)",
+                    "Smoothing applied when the tracker runs on this machine (loopback). 0 = no smoothing, 1 = heavy.",
+                    new AcceptableValueRange<float>(0f, 1f)));
+
+            RemoteSmoothing = config.Bind(
+                "Smoothing", "RemoteSmoothing", 0.15f,
+                new ConfigDescription(
+                    "Smoothing applied when the tracker is a remote device on the network. 0 = no smoothing, 1 = heavy.",
                     new AcceptableValueRange<float>(0f, 1f)));
 
             PositionEnabled = config.Bind(
@@ -161,12 +167,6 @@ namespace EasyDeliveryCoHeadTracking.Config
                 new ConfigDescription(
                     "Maximum backward displacement in meters",
                     new AcceptableValueRange<float>(0.01f, 0.5f)));
-
-            PositionSmoothing = config.Bind(
-                "Position", "PositionSmoothing", 0.15f,
-                new ConfigDescription(
-                    "Smoothing for positional tracking (0 = instant, 1 = very slow)",
-                    new AcceptableValueRange<float>(0f, 1f)));
 
             TrackerPivotForward = config.Bind(
                 "Position", "TrackerPivotForward", 0.08f,
