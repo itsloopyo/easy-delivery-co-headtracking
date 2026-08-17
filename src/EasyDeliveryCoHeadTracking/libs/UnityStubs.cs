@@ -5,6 +5,7 @@ namespace UnityEngine {
         public static void DestroyImmediate(Object obj) { }
         public static void DontDestroyOnLoad(Object target) { }
         public string name { get; set; }
+        public HideFlags hideFlags { get; set; }
         public static implicit operator bool(Object exists) => exists != null;
         public static T FindObjectOfType<T>() where T : Object => default;
         public static T FindObjectOfType<T>(bool includeInactive) where T : Object => default;
@@ -65,7 +66,6 @@ namespace UnityEngine {
         public Transform transform { get; }
         public bool activeSelf { get; }
         public bool activeInHierarchy { get; }
-        public HideFlags hideFlags { get; set; }
         public T GetComponent<T>() => default;
         public Component GetComponent(System.Type type) => default;
         public T GetComponentInChildren<T>() => default;
@@ -334,7 +334,8 @@ namespace UnityEngine {
         public static void EndGroup() { }
     }
     public class GUIContent {
-        public static GUIContent none => new GUIContent();
+        // A static FIELD in the real engine; a property here emits call get_none.
+        public static GUIContent none = new GUIContent();
         public string text { get; set; }
         public Texture image { get; set; }
         public GUIContent() { }
@@ -345,7 +346,12 @@ namespace UnityEngine {
         public GUIStyle button { get; }
         public GUIStyle box { get; }
     }
-    public class Texture : Object { public int width { get; } public int height { get; } }
+    public class Texture : Object {
+        public int width { get; }
+        public int height { get; }
+        // Declared on Texture in the real engine, not on Texture2D.
+        public FilterMode filterMode { get; set; }
+    }
     public class Sprite : Object {
         public Texture2D texture { get; }
         public Rect rect { get; }
@@ -353,7 +359,6 @@ namespace UnityEngine {
     public class Texture2D : Texture {
         public Texture2D(int width, int height) { }
         public Texture2D(int width, int height, TextureFormat format, bool mipChain) { }
-        public FilterMode filterMode { get; set; }
         public void SetPixel(int x, int y, Color color) { }
         public void SetPixels(Color[] colors) { }
         public Color GetPixel(int x, int y) => default;
@@ -365,8 +370,15 @@ namespace UnityEngine {
     public enum FilterMode { Point, Bilinear, Trilinear }
     public enum ScaleMode { StretchToFill, ScaleAndCrop, ScaleToFit }
     public struct Rect {
-        public float x, y, width, height;
-        public Rect(float x, float y, float width, float height) { this.x = x; this.y = y; this.width = width; this.height = height; }
+        // x/y/width/height are PROPERTIES in the real UnityEngine, not fields.
+        // As fields the call site emits ldfld, which throws MissingFieldException
+        // against the shipped assembly.
+        private float _x, _y, _width, _height;
+        public float x { get => _x; set => _x = value; }
+        public float y { get => _y; set => _y = value; }
+        public float width { get => _width; set => _width = value; }
+        public float height { get => _height; set => _height = value; }
+        public Rect(float x, float y, float width, float height) { _x = x; _y = y; _width = width; _height = height; }
         public float xMin { get => x; set => x = value; }
         public float xMax { get => x + width; set => width = value - x; }
         public float yMin { get => y; set => y = value; }

@@ -13,6 +13,11 @@ update-deps = "powershell -ExecutionPolicy Bypass -File scripts/update-deps.ps1"
 setup = "powershell -ExecutionPolicy Bypass -File scripts/setup-libs.ps1"
 restore = { cmd = "dotnet restore src/EasyDeliveryCoHeadTracking/EasyDeliveryCoHeadTracking.csproj", depends-on = ["setup"] }
 build = { cmd = "dotnet build src/EasyDeliveryCoHeadTracking/EasyDeliveryCoHeadTracking.csproj -c Release", depends-on = ["restore"] }
+# Checks that every member reference the build emits resolves against the
+# assemblies it binds to at runtime. Stub/engine shape drift (a property
+# declared as a field, or the reverse) compiles cleanly and only fails in
+# game. Needs the game installed; skips and succeeds without it.
+verify-refs = { cmd = "powershell -ExecutionPolicy Bypass -File cameraunlock-core/scripts/verify-assembly-refs.ps1 -GameId easy-delivery-co -BuildDir src/EasyDeliveryCoHeadTracking/bin/Release", depends-on = ["build"] }
 install = { cmd = "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1 Release", depends-on = ["build"] }
 package = { cmd = "powershell -ExecutionPolicy Bypass -File scripts/package-release.ps1", depends-on = ["build"] }
 uninstall = "scripts\\uninstall.cmd"
