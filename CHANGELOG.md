@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.3] - 2026-08-18
+
+### Fixed
+
+- follow core's per-connection smoothing split
+- match stub member kinds to the shipped Unity assemblies
+- compile the uGUI stubs into UnityEngine.UI, not UnityEngine
+
 ## [Unreleased]
 
 ### Changed
