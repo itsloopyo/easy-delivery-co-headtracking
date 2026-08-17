@@ -21,7 +21,7 @@ Write-Host "Bootstrapping build dependencies (no game install required)..." -For
 
 # Wipe libs/ except the tracked stub source so stale game DLLs can't mask CI parity.
 Get-ChildItem -Path $libsPath -Force |
-    Where-Object { $_.Name -ne 'UnityStubs.cs' } |
+    Where-Object { $_.Name -notin @('UnityStubs.cs', 'UnityUIStubs.cs') } |
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 
 # BepInEx from vendor zip
@@ -41,7 +41,11 @@ try {
 }
 
 # Unity reference stubs compiled from UnityStubs.cs
-function Build-Stub([string]$assemblyName, [string]$compileItem) {
+function Build-Stub([string]$assemblyName, [string]$compileItem, [string[]]$references = @()) {
+    $refItems = ($references | ForEach-Object {
+        "    <Reference Include=`"$([System.IO.Path]::GetFileNameWithoutExtension($_))`"><HintPath>$_</HintPath><Private>false</Private></Reference>"
+    }) -join "`n"
+
     $proj = @"
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
@@ -53,6 +57,7 @@ function Build-Stub([string]$assemblyName, [string]$compileItem) {
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$compileItem" />
+$refItems
   </ItemGroup>
 </Project>
 "@
@@ -65,6 +70,11 @@ function Build-Stub([string]$assemblyName, [string]$compileItem) {
 }
 
 Build-Stub 'UnityEngine' 'UnityStubs.cs'
+
+# uGUI ships as its own assembly with no forwarder from UnityEngine.dll, so
+# its stubs must be compiled into UnityEngine.UI.dll or the emitted typerefs
+# name an assembly that does not declare them.
+Build-Stub 'UnityEngine.UI' 'UnityUIStubs.cs' @('UnityEngine.dll')
 
 $emptySource = Join-Path $libsPath 'EmptyStub.cs'
 '// Empty stub assembly' | Out-File -FilePath $emptySource -Encoding utf8
