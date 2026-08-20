@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0] - 2026-08-20
+
+### Fixed
+
+- give the forward lean its own travel budget again
+- drop mod-side recentring and always log tracker connections
+
 ## [0.1.3] - 2026-08-18
 
 ### Fixed
