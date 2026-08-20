@@ -54,7 +54,7 @@ No special hardware needed - OpenTrack's built-in **neuralnet tracker** uses any
 2. Select your webcam in the tracker settings
 3. Set output to **UDP over network** (`127.0.0.1:4242`)
 4. Start tracking before launching the game
-5. Recenter in OpenTrack via its hotkey, and press **Home** in-game to recenter the mod as needed
+5. Centre your view with OpenTrack's own Center hotkey whenever you need a fresh neutral pose - the mod applies whatever the tracker sends and keeps no centre of its own
 
 ### Phone App Setup
 
@@ -72,7 +72,6 @@ Two equivalent binding sets - use whichever your keyboard has:
 
 | Action                       | Nav-cluster | Chord           |
 |------------------------------|-------------|-----------------|
-| Recenter                     | `Home`      | `Ctrl+Shift+T`  |
 | Toggle tracking              | `End`       | `Ctrl+Shift+Y`  |
 | Cycle tracking mode          | `Page Up`   | `Ctrl+Shift+G`  |
 | Toggle yaw mode              | `Page Down` | `Ctrl+Shift+H`  |
@@ -113,7 +112,6 @@ ShowReticle = false
 
 [Keybindings]
 ToggleKey = End
-RecenterKey = Home
 ToggleReticleKey = Insert
 # Cycle: full -> rotation only -> position only
 CycleTrackingModeKey = PageUp
@@ -173,9 +171,13 @@ position, so there is no separate position smoothing setting.
 - On Xbox Game Pass: the installer checks `C:\XboxGames\Easy Delivery Co\Content\` automatically; otherwise set `EASY_DELIVERY_CO_PATH` to your game folder
 
 **No tracking response:**
+- Look for `OpenTrack connection established` in `BepInEx/LogOutput.log`. If it is
+  absent, no tracker packet ever reached the mod and the problem is upstream of
+  the game. BepInEx rewrites that file on every launch, so it only ever holds the
+  most recent session - send it when reporting a problem.
 - Verify OpenTrack is running and outputting data
 - Check the UDP port matches (default 4242)
-- Press `End` to enable tracking, `Home` to recenter
+- Press `End` to enable tracking
 - Check that your firewall isn't blocking UDP port 4242
 
 **A config edit had no effect:**

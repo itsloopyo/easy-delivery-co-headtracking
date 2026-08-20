@@ -132,13 +132,6 @@ namespace EasyDeliveryCoHeadTracking.Core
                 _positionProcessor, _positionInterpolator);
             _cameraController.WorldSpaceYaw = _config.WorldSpaceYaw.Value;
 
-            // ProcessFrame consumes the tracker app's recenter request itself and has
-            // already recentered by the time this fires, so this only reports it.
-            // Polling the receiver here as well would race it: the request is claimed
-            // with a single Interlocked.Exchange, so exactly one of the two consumers
-            // sees a given CENTER press and the feedback would come and go at random.
-            _cameraController.OnRemoteRecenter = ReportRecentered;
-
             // Seed the mode from config so the first cycle press transitions away
             // from the current mode rather than back to it.
             SetTrackingMode(_config.PositionEnabled.Value
@@ -158,7 +151,6 @@ namespace EasyDeliveryCoHeadTracking.Core
         {
             _inputHandler = new InputHandler(_config);
             _inputHandler.OnTogglePressed += HandleToggle;
-            _inputHandler.OnRecenterPressed += HandleRecenter;
             _inputHandler.OnToggleReticlePressed += HandleToggleReticle;
             _inputHandler.OnCycleTrackingModePressed += HandleCycleTrackingMode;
             _inputHandler.OnToggleYawModePressed += HandleToggleYawMode;
@@ -187,7 +179,6 @@ namespace EasyDeliveryCoHeadTracking.Core
         private string BuildHotkeyInfo()
         {
             return $"[{_inputHandler.ToggleKey}/Ctrl+Shift+{ChordHotkeys.ToggleLetter}] Toggle, " +
-                   $"[{_inputHandler.RecenterKey}/Ctrl+Shift+{ChordHotkeys.RecenterLetter}] Recenter, " +
                    $"[{_inputHandler.CycleTrackingModeKey}/Ctrl+Shift+{ChordHotkeys.PositionLetter}] Cycle Mode, " +
                    $"[{_inputHandler.YawModeKey}/Ctrl+Shift+{ChordHotkeys.FourthToggleLetter}] Yaw, " +
                    $"[{_inputHandler.ToggleReticleKey}/Ctrl+Shift+{ChordHotkeys.FifthToggleLetter}] Reticle";
@@ -232,30 +223,6 @@ namespace EasyDeliveryCoHeadTracking.Core
             if (!_initialized) return;
             bool shouldTrack = TrackingEnabled && _gameStateDetector.IsGameplayActive;
             _cameraController.ProcessFrame(shouldTrack);
-            ConsumeDeferredRecenter();
-        }
-
-        // Fallback consumer for a tracker-app recenter request, running AFTER ProcessFrame
-        // has had its turn on the same latch. The controller only consumes inside its
-        // "tracking enabled and receiving" branch, so a CENTER press in a menu, on a pause
-        // or loading screen, or with tracking toggled off would otherwise go unconsumed -
-        // and the request is a sticky Interlocked latch that nothing clears on disconnect,
-        // so it is not dropped but deferred indefinitely. A press left pending until the
-        // next BeginTrackingSession fires Recenter() mid-transition, which clears the
-        // controller's _recenterOnStabilize and permanently anchors the session to the raw
-        // first-received pose instead of the stabilized one, with a phantom toast attached.
-        //
-        // Ordering makes this safe without duplicating the controller's gate: by the time
-        // this runs the controller has already claimed the request if it was going to, so
-        // TryConsumeRecenterRequest returns false here and this is a no-op. Exactly one of
-        // the two handles any given press, and the choice is a fact rather than a
-        // prediction - which is why this sits here and not next to the gate in Update().
-        private void ConsumeDeferredRecenter()
-        {
-            if (_receiver.TryConsumeRecenterRequest())
-            {
-                HandleRecenter();
-            }
         }
 
         private void OnGUI()
@@ -270,7 +237,6 @@ namespace EasyDeliveryCoHeadTracking.Core
             if (_inputHandler != null)
             {
                 _inputHandler.OnTogglePressed -= HandleToggle;
-                _inputHandler.OnRecenterPressed -= HandleRecenter;
                 _inputHandler.OnToggleReticlePressed -= HandleToggleReticle;
                 _inputHandler.OnCycleTrackingModePressed -= HandleCycleTrackingMode;
                 _inputHandler.OnToggleYawModePressed -= HandleToggleYawMode;
@@ -293,17 +259,19 @@ namespace EasyDeliveryCoHeadTracking.Core
             if (isReceiving == _wasReceiving)
                 return;
 
+            // The on-screen notification is a user preference; the log line is the only
+            // evidence in the log that tracker packets ever arrived, so it is not gated.
+            Logger.LogInfo(isReceiving ? "OpenTrack connection established" : "OpenTrack connection lost");
+
             if (_config.ShowConnectionNotifications.Value)
             {
                 if (isReceiving)
                 {
                     _notificationUI.ShowConnectionEstablished();
-                    Logger.LogInfo("OpenTrack connection established");
                 }
                 else
                 {
                     _notificationUI.ShowConnectionLost();
-                    Logger.LogInfo("OpenTrack connection lost");
                 }
             }
             _wasReceiving = isReceiving;
@@ -324,18 +292,6 @@ namespace EasyDeliveryCoHeadTracking.Core
                 _notificationUI.ShowTrackingDisabled();
                 Logger.LogInfo("Head tracking disabled");
             }
-        }
-
-        private void HandleRecenter()
-        {
-            _cameraController.Recenter();
-            ReportRecentered();
-        }
-
-        private void ReportRecentered()
-        {
-            _notificationUI.ShowRecentered();
-            Logger.LogInfo("Head tracking recentered");
         }
 
         private void HandleToggleReticle()

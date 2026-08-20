@@ -16,7 +16,6 @@ namespace EasyDeliveryCoHeadTracking.Config
 
         // Keybindings
         public ConfigEntry<KeyCode> ToggleKey { get; private set; }
-        public ConfigEntry<KeyCode> RecenterKey { get; private set; }
         public ConfigEntry<KeyCode> ToggleReticleKey { get; private set; }
         public ConfigEntry<KeyCode> CycleTrackingModeKey { get; private set; }
         public ConfigEntry<KeyCode> YawModeKey { get; private set; }
@@ -69,10 +68,6 @@ namespace EasyDeliveryCoHeadTracking.Config
             ToggleKey = config.Bind(
                 "Keybindings", "ToggleKey", KeyCode.End,
                 "Key to toggle head tracking on/off");
-
-            RecenterKey = config.Bind(
-                "Keybindings", "RecenterKey", KeyCode.Home,
-                "Key to recenter head tracking");
 
             ToggleReticleKey = config.Bind(
                 "Keybindings", "ToggleReticleKey", KeyCode.Insert,

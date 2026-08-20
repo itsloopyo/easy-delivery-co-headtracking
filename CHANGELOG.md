@@ -10,8 +10,20 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- The `OpenTrack connection established` log line no longer depends on
+  `ShowConnectionNotifications`. Turning the on-screen notification off used to
+  also remove the only evidence in the log that tracker packets had arrived.
+
 ### Changed
 
+- Removed mod-side recentring. The `Home` key, the `Ctrl+Shift+T` chord and the
+  `Keybindings/RecenterKey` config entry are gone, along with the handling of a
+  CENTER press sent by the tracker app. The tracker owns the centre now: centre
+  yourself in OpenTrack or your phone app and the mod applies that pose as-is.
+  Keeping a second centre in the mod meant the two drifted apart and there was
+  no way to tell which side was wrong.
 - Smoothing is now two settings instead of one: `Smoothing/LocalSmoothing`
   (default 0.0) applies when the tracker runs on this machine,
   `Smoothing/RemoteSmoothing` (default 0.15) applies when the tracker is a

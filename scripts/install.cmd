@@ -30,7 +30,7 @@ set "FRAMEWORK_TYPE=BepInEx"
 set "BEPINEX_ARCH=x64"
 set "BEPINEX_VENDOR_ZIP_NAME="
 set "BEPINEX_SUBFOLDER="
-set "MOD_CONTROLS=Controls:&echo   Home    - Recenter head tracking&echo   End     - Toggle head tracking on/off&echo   PgUp    - Toggle position tracking&echo   PgDn    - Toggle yaw mode (world/camera-local)&echo   Insert  - Toggle aim reticle"
+set "MOD_CONTROLS=Controls:&echo   End     - Toggle head tracking on/off&echo   PgUp    - Toggle position tracking&echo   PgDn    - Toggle yaw mode (world/camera-local)&echo   Insert  - Toggle aim reticle"
 :: --- END CONFIG BLOCK ---
 
 call :detect_yes_flag %*
