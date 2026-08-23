@@ -143,7 +143,16 @@ $prebuiltDir = Join-Path $projectDir "prebuilt"
 if (-not (Test-Path $prebuiltDir)) {
     New-Item -ItemType Directory -Path $prebuiltDir -Force | Out-Null
 }
-Copy-Item "src/EasyDeliveryCoHeadTracking/bin/Release/net48/*.dll" $prebuiltDir -Force
+# Named explicitly, never a *.dll glob. The build output directory is also
+# where a copy-local reference would land, so a glob commits whatever the
+# compiler happened to stage - including a game or engine assembly the moment
+# one reference loses its <Private>false</Private>. Only our own binaries may
+# enter this repository.
+foreach ($dll in @("EasyDeliveryCoHeadTracking.dll", "CameraUnlock.Core.dll", "CameraUnlock.Core.Unity.dll")) {
+    $dllPath = "src/EasyDeliveryCoHeadTracking/bin/Release/net48/$dll"
+    if (-not (Test-Path $dllPath)) { throw "Expected build output not found: $dllPath" }
+    Copy-Item $dllPath $prebuiltDir -Force
+}
 Write-Host "  Updated prebuilt DLLs" -ForegroundColor Gray
 Pop-Location
 
