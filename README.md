@@ -1,8 +1,8 @@
 # Easy Delivery Co Head Tracking
 
-An unofficial BepInEx mod that adds OpenTrack head tracking to Easy Delivery Co, so you can look around naturally in game just by moving your heaad.
+![Easy Delivery Co running with this mod](https://raw.githubusercontent.com/itsloopyo/easy-delivery-co-headtracking/main/assets/readme-clip.gif)
 
-![Mod GIF](https://raw.githubusercontent.com/itsloopyo/easy-delivery-co-headtracking/main/assets/readme-clip.gif)
+An unofficial head tracking mod for Easy Delivery Co that moves the camera with your head while your mouse or controller keeps steering, driven by a webcam, phone, or any OpenTrack compatible tracker, with no VR headset required.
 
 ## Features
 
