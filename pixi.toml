@@ -10,7 +10,12 @@ sync = "git submodule update --remote cameraunlock-core"
 # Manual: refresh vendored BepInEx from upstream within pinned range. Dev runs
 # this when bumping the bundled version, then commits. CI never refreshes.
 update-deps = "powershell -ExecutionPolicy Bypass -File scripts/update-deps.ps1"
-setup = "powershell -ExecutionPolicy Bypass -File scripts/setup-libs.ps1"
+# BepInEx.dll and 0Harmony.dll out of the committed vendor zip.
+setup-loader = "powershell -ExecutionPolicy Bypass -File scripts/setup-libs.ps1"
+# Unity reference stubs, compiled from the shared sources in the core submodule so
+# every mod builds against one copy of them. Runs after setup-loader, which clears
+# libs/ before repopulating it.
+setup = { cmd = "powershell -ExecutionPolicy Bypass -File cameraunlock-core/csharp/stubs/build-unity-stubs.ps1 -OutputPath src/EasyDeliveryCoHeadTracking/libs -TargetFramework net48", depends-on = ["setup-loader"] }
 restore = { cmd = "dotnet restore src/EasyDeliveryCoHeadTracking/EasyDeliveryCoHeadTracking.csproj", depends-on = ["setup"] }
 build = { cmd = "dotnet build src/EasyDeliveryCoHeadTracking/EasyDeliveryCoHeadTracking.csproj -c Release", depends-on = ["restore"] }
 # Checks that every member reference the build emits resolves against the
