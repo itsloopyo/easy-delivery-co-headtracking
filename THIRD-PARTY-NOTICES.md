@@ -26,7 +26,7 @@ own entry below.
 | HarmonyX | 2.9.0 | MIT | Inside the vendored BepInEx archive (`0Harmony.dll`) |
 | Mono.Cecil | 0.10.4 | MIT | Inside the vendored BepInEx archive |
 | MonoMod | 22.01.29.01 | MIT | Inside the vendored BepInEx archive |
-| cameraunlock-core | fec3b4c8a6fe9c45401cf65d3d43d4f5acd22b72 | MIT | Shipped as `CameraUnlock.Core.dll` and `CameraUnlock.Core.Unity.dll` in both ZIPs |
+| cameraunlock-core | f441e29427b7422a584ba492dddd7788881804b0 | MIT | Shipped as `CameraUnlock.Core.dll` and `CameraUnlock.Core.Unity.dll` in both ZIPs |
 | OpenTrack | n/a | ISC | Not bundled; UDP protocol interoperability only |
 | Easy Delivery Co footage | n/a | All rights reserved | Repository only; in neither ZIP |
 
@@ -547,7 +547,7 @@ Git submodule at `cameraunlock-core/`, built into `CameraUnlock.Core.dll` and
 different copyright holder from the `LICENSE` at the root of this repository,
 so its notice is reproduced here in full.
 
-- Pinned commit: `fec3b4c8a6fe9c45401cf65d3d43d4f5acd22b72`
+- Pinned commit: `f441e29427b7422a584ba492dddd7788881804b0`
 
 ```
 MIT License
