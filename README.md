@@ -8,6 +8,7 @@ An unofficial head tracking mod for Easy Delivery Co that moves the camera with 
 
 - **Decoupled look and aim** - head tracking moves the camera; steering stays on your mouse/controller
 - **6DOF positional tracking** - lean and peek with head position
+- **Works with any OpenTrack compatible tracker** - free options available for PC, iOS and Android
 
 ## Requirements
 
@@ -16,6 +17,13 @@ An unofficial head tracking mod for Easy Delivery Co that moves the camera with 
 - Windows 10/11
 
 ## Installation
+
+### Lopari
+
+Download [Lopari](https://lopari.app), choose **Easy Delivery Co**, and click
+**Play with head tracking**.
+
+### Standalone Installer
 
 1. Download the latest installer ZIP from the [Releases page](https://github.com/itsloopyo/easy-delivery-co-headtracking/releases)
 2. Extract the ZIP anywhere
@@ -201,7 +209,7 @@ position, so there is no separate position smoothing setting.
 - Ensure `winhttp.dll` exists in the game folder (installed by BepInEx)
 - Make sure all 3 DLLs are in `BepInEx/plugins/`
 - Check `BepInEx/LogOutput.log` for errors
-- On Xbox Game Pass: the installer checks `C:\XboxGames\Easy Delivery Co\Content\` automatically; otherwise set `EASY_DELIVERY_CO_PATH` to your game folder
+- On Xbox Game Pass: the installer finds the game on whichever drive the Xbox app installed it to; otherwise set `EASY_DELIVERY_CO_PATH` to your game folder
 
 **No tracking response:**
 - Look for `OpenTrack connection established` in `BepInEx/LogOutput.log`. If it is
