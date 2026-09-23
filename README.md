@@ -12,7 +12,7 @@ An unofficial head tracking mod for Easy Delivery Co that moves the camera with 
 
 ## Requirements
 
-- [Easy Delivery Co](https://store.steampowered.com/app/3293010/Easy_Delivery_Co/) (Steam or Xbox/Game Pass)
+- [Easy Delivery Co](https://store.steampowered.com/app/3293010/Easy_Delivery_Co/) (Steam or Xbox Game Pass)
 - [OpenTrack](https://github.com/opentrack/opentrack) or a compatible head tracking app (smartphone, webcam, or dedicated hardware)
 - Windows 10/11
 
