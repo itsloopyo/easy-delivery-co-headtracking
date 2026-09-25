@@ -22,6 +22,12 @@ set "BEPINEX_VENDOR_ZIP_NAME="
 set "BEPINEX_SUBFOLDER="
 set "PLUGIN_SUBFOLDER="
 set "MOD_CONTROLS=Controls:&echo   End     - Toggle head tracking on/off&echo   PgUp    - Toggle position tracking&echo   PgDn    - Toggle yaw mode (world/camera-local)&echo   Insert  - Toggle aim reticle"
+:: Not used by this mod. Set blank so a value another mod's wrapper left in
+:: the same console does not reach the body.
+set "IL2CPP_VENDOR_DIR_NAME="
+set "IL2CPP_VENDOR_ZIP_NAME="
+set "IL2CPP_PLUGIN_DIR_NAME="
+set "IL2CPP_MOD_DLLS="
 :: --- END CONFIG BLOCK ---
 
 :: Pin delayed expansion off before `%*` is expanded on the `call` below.
