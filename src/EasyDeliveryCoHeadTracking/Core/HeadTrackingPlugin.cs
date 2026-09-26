@@ -1,12 +1,15 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
 using BepInEx;
 using BepInEx.Logging;
 using CameraUnlock.Core.Aim;
+using CameraUnlock.Core.Config;
 using CameraUnlock.Core.Data;
 using CameraUnlock.Core.Math;
 using CameraUnlock.Core.Processing;
 using CameraUnlock.Core.Protocol;
 using CameraUnlock.Core.Tracking;
-using CameraUnlock.Core.Unity.Extensions;
 using CameraUnlock.Core.Unity.Rendering;
 using CameraUnlock.Core.Unity.Tracking;
 using CameraUnlock.Core.Unity.UI;
@@ -26,6 +29,7 @@ namespace EasyDeliveryCoHeadTracking.Core
 
         private const float StartupNotificationSeconds = 4f;
         private const float StatusNotificationSeconds = 1.5f;
+        private const float ConfigNotificationSeconds = 8f;
         private const int ReticleBaseSizeAt1080p = 6;
         private const int ReticleOutlineWidthAt1080p = 2;
 
@@ -34,7 +38,8 @@ namespace EasyDeliveryCoHeadTracking.Core
         public bool TrackingEnabled { get; private set; }
         public ViewMatrixTrackingController CameraController => _cameraController;
 
-        private ModConfig _config;
+        private EasyDeliveryCoConfig _config;
+        private ConfigOwner<EasyDeliveryCoConfig> _configOwner;
         private OpenTrackReceiver _receiver;
         private TrackingProcessor _processor;
         private PoseInterpolator _interpolator;
@@ -45,7 +50,6 @@ namespace EasyDeliveryCoHeadTracking.Core
         private InputHandler _inputHandler;
         private NotificationUI _notificationUI;
         private IMGUIReticle _aimReticle;
-        private bool _reticleEnabled;
         private bool _wasReceiving;
         private TrackingMode _trackingMode;
         private bool _initialized;
@@ -65,30 +69,111 @@ namespace EasyDeliveryCoHeadTracking.Core
             Instance = this;
             Logger.LogInfo($"{PluginName} v{PluginVersion} initializing...");
 
-            _config = LegacyConfigMap.ToRuntime(LegacyConfigReader.Read(Config, out _));
-            // The reader writes nothing; this is the write BepInEx's Bind made on every start,
-            // which creates the .cfg on the first one.
-            Config.SaveOnConfigSet = true;
-            Config.Save();
+            // Built before the config loads, so the owner's status sink can reach the player
+            // when the file cannot be read, imported or created.
+            _notificationUI = new NotificationUI();
+            LoadConfig();
 
             BuildPipeline();
             BuildCameraController();
             BuildGameStateDetector();
             BuildInput();
-            BuildUI();
+            BuildReticle();
 
             _receiver.Start(_config.UdpPort);
-            TrackingEnabled = _config.EnabledOnStartup;
+            TrackingEnabled = _config.EnableOnStartup;
             _initialized = true;
 
             Logger.LogInfo($"{PluginName} initialized. Tracking {(TrackingEnabled ? "enabled" : "disabled")}");
             Logger.LogInfo($"Listening on UDP port {_config.UdpPort}");
 
-            if (_config.ShowStartupNotification)
+            // A config the owner could not load or create has already put its message up, and the
+            // startup toast would replace it.
+            if (_config.ShowStartupNotification && !_notificationUI.IsDisplaying)
             {
                 string status = TrackingEnabled ? "Head Tracking: ON" : "Head Tracking: OFF";
                 _notificationUI.ShowNotification($"{status}\n{BuildHotkeyInfo()}", StartupNotificationSeconds);
             }
+        }
+
+        /// <summary>
+        /// The settings live in BepInEx\config\CameraUnlock.ini, read and written by core's config
+        /// owner, with rows set to default following the player's Defaults.ini. Nothing is bound
+        /// through BepInEx's ConfigFile at runtime, so ConfigurationManager does not list them.
+        /// While CameraUnlock.ini is absent the owner imports the plugin's .cfg, the file every
+        /// earlier build read, through the frozen v0.2.0 reader, and never writes that file.
+        /// </summary>
+        private void LoadConfig()
+        {
+            _configOwner = new ConfigOwner<EasyDeliveryCoConfig>(new ConfigOwnerOptions<EasyDeliveryCoConfig>
+            {
+                Path = ConfigPath,
+                Table = EasyDeliveryCoConfig.Table(),
+                Import = LegacyConfigImport.For(Config),
+                LegacySourcePath = Config.ConfigFilePath,
+                Header = new RenderHeader(EasyDeliveryCoConfig.DisplayName),
+                Defaults = DefaultsFile.PerUser(),
+                StatusSink = ShowConfigMessage
+            });
+
+            _loadMessages = string.Empty;
+            ConfigLoadResult<EasyDeliveryCoConfig> loaded = _configOwner.Load();
+            _loadMessages = null;
+            _config = loaded.Config;
+
+            // The owner writes each diagnostic as "<path>: <description>" among lines that only
+            // report what it did, so the complaints are picked out by their text.
+            var complaints = new HashSet<string>();
+            foreach (CanonicalDiagnostic diagnostic in loaded.Diagnostics)
+                complaints.Add(ConfigPath + ": " + diagnostic.Describe());
+            bool usable = loaded.Status == ConfigLoadStatus.Canonical
+                          || loaded.Status == ConfigLoadStatus.Migrated
+                          || loaded.Status == ConfigLoadStatus.Created;
+            foreach (string line in loaded.Log)
+            {
+                if (usable && !complaints.Contains(line)) Logger.LogInfo(line);
+                else Logger.LogWarning(line);
+            }
+            Logger.LogInfo("Config " + ConfigPath + ": " + loaded.Status);
+        }
+
+        private static string ConfigPath
+        {
+            get { return Path.Combine(Paths.ConfigPath, "CameraUnlock.ini"); }
+        }
+
+        // Non-null while Load runs. Load can hand the sink two messages, the config file's and
+        // then one about Defaults.ini, and the notification shows one message at a time, so the
+        // second is shown beneath the first rather than in its place.
+        private string _loadMessages;
+
+        private void ShowConfigMessage(string message)
+        {
+            if (_loadMessages != null)
+            {
+                _loadMessages = _loadMessages.Length == 0 ? message : _loadMessages + "\n" + message;
+                message = _loadMessages;
+            }
+            _notificationUI.ShowNotification(message, NotificationType.Warning, ConfigNotificationSeconds);
+        }
+
+        /// <summary>
+        /// Called after the new value is already applied. A save that fails is logged, the owner
+        /// shows the player why, and the session keeps the new value.
+        /// </summary>
+        private void SaveConfig(Action<EasyDeliveryCoConfig> change)
+        {
+            ConfigSaveResult saved = _configOwner.Save(change);
+            if (saved.Status == ConfigSaveStatus.Saved)
+            {
+                // A row that held default and now holds a value, so it stops following
+                // Defaults.ini in this game.
+                foreach (string line in saved.Log) Logger.LogInfo(line);
+                return;
+            }
+            foreach (string line in saved.Log) Logger.LogWarning(line);
+            Logger.LogWarning(ConfigPath + ": " + saved.Status + ": " + saved.Reason
+                              + " The change applies to this session only.");
         }
 
         private void BuildPipeline()
@@ -96,14 +181,14 @@ namespace EasyDeliveryCoHeadTracking.Core
             _receiver = new OpenTrackReceiver();
             _receiver.Log = msg => Logger.LogInfo(msg);
 
+            // The pitch inversion here and the lateral one below are the axis conversion every
+            // published build applied, with every multiplier at 1. None of it is a setting.
             _processor = new TrackingProcessor
             {
                 LocalSmoothing = _config.LocalSmoothing,
                 RemoteSmoothing = _config.RemoteSmoothing,
                 Sensitivity = new SensitivitySettings(
-                    _config.YawSensitivity,
-                    _config.PitchSensitivity,
-                    _config.RollSensitivity,
+                    1.0f, 1.0f, 1.0f,
                     invertYaw: false,
                     invertPitch: true,
                     invertRoll: false),
@@ -113,14 +198,13 @@ namespace EasyDeliveryCoHeadTracking.Core
 
             _positionProcessor = new PositionProcessor
             {
-                Settings = PositionSettings.Symmetric(
-                    _config.PositionSensitivityX,
-                    _config.PositionSensitivityY,
-                    _config.PositionSensitivityZ,
-                    _config.PositionLimitX,
-                    _config.PositionLimitY,
-                    _config.PositionLimitZ,
-                    _config.PositionLimitZBack,
+                Settings = new PositionSettings(
+                    1.0f, 1.0f, 1.0f,
+                    _config.Position.LimitX,
+                    _config.Position.LimitY,
+                    _config.Position.LimitYDown,
+                    _config.Position.LimitZ,
+                    _config.Position.LimitZBack,
                     _config.LocalSmoothing,
                     _config.RemoteSmoothing,
                     invertX: true, invertY: false, invertZ: false),
@@ -136,11 +220,9 @@ namespace EasyDeliveryCoHeadTracking.Core
                 _positionProcessor, _positionInterpolator);
             _cameraController.WorldSpaceYaw = _config.WorldSpaceYaw;
 
-            // Seed the mode from config so the first cycle press transitions away
-            // from the current mode rather than back to it.
-            SetTrackingMode(_config.PositionEnabled
-                ? TrackingMode.RotationAndPosition
-                : TrackingMode.RotationOnly);
+            // The pair always names a mode: the table reads a pair that names none as its default.
+            // Seeding it from the file makes the first cycle press move on from the saved mode.
+            SetTrackingMode(TrackingModeChannels.Decode(_config.RotationEnabled, _config.PositionEnabled).Value);
             _cameraController.Enable();
         }
 
@@ -153,17 +235,14 @@ namespace EasyDeliveryCoHeadTracking.Core
 
         private void BuildInput()
         {
-            _inputHandler = new InputHandler(_config);
+            _inputHandler = new InputHandler(_config, msg => Logger.LogWarning(msg));
             _inputHandler.OnTogglePressed += HandleToggle;
-            _inputHandler.OnToggleReticlePressed += HandleToggleReticle;
             _inputHandler.OnCycleTrackingModePressed += HandleCycleTrackingMode;
             _inputHandler.OnToggleYawModePressed += HandleToggleYawMode;
         }
 
-        private void BuildUI()
+        private void BuildReticle()
         {
-            _notificationUI = new NotificationUI();
-            _reticleEnabled = _config.ShowReticle;
             _aimOffsetCache = new PerFrameCache<UnityEngine.Vector2>(ComputeAimOffset);
 
             _aimReticle = gameObject.AddComponent<IMGUIReticle>();
@@ -172,20 +251,18 @@ namespace EasyDeliveryCoHeadTracking.Core
             _aimReticle.OutlineWidthAt1080p = ReticleOutlineWidthAt1080p;
             _aimReticle.ReticleColor = UnityEngine.Color.white;
             _aimReticle.OutlineColor = UnityEngine.Color.black;
-            _aimReticle.IsVisible = _reticleEnabled;
+            _aimReticle.IsVisible = true;
             _aimReticle.InitializeWithOffset(
                 getOffset: _aimOffsetCache.Get,
                 shouldDraw: () => _gameStateDetector.IsGameplayActive
-                                  && _reticleEnabled
                                   && _cameraController.IsApplyingTracking);
         }
 
         private string BuildHotkeyInfo()
         {
-            return $"[{_inputHandler.ToggleKey}/Ctrl+Shift+{ChordHotkeys.ToggleLetter}] Toggle, " +
-                   $"[{_inputHandler.CycleTrackingModeKey}/Ctrl+Shift+{ChordHotkeys.PositionLetter}] Cycle Mode, " +
-                   $"[{_inputHandler.YawModeKey}/Ctrl+Shift+{ChordHotkeys.FourthToggleLetter}] Yaw, " +
-                   $"[{_inputHandler.ToggleReticleKey}/Ctrl+Shift+{ChordHotkeys.FifthToggleLetter}] Reticle";
+            return $"[{_config.ToggleKeyName}] Toggle, " +
+                   $"[{_config.CycleTrackingModeKeyName}] Cycle Mode, " +
+                   $"[{_config.YawModeKeyName}] Yaw";
         }
 
         private void Update()
@@ -241,7 +318,6 @@ namespace EasyDeliveryCoHeadTracking.Core
             if (_inputHandler != null)
             {
                 _inputHandler.OnTogglePressed -= HandleToggle;
-                _inputHandler.OnToggleReticlePressed -= HandleToggleReticle;
                 _inputHandler.OnCycleTrackingModePressed -= HandleCycleTrackingMode;
                 _inputHandler.OnToggleYawModePressed -= HandleToggleYawMode;
             }
@@ -281,6 +357,7 @@ namespace EasyDeliveryCoHeadTracking.Core
             _wasReceiving = isReceiving;
         }
 
+        /// <summary>The master on/off. It changes this session only and never writes the file.</summary>
         private void HandleToggle()
         {
             TrackingEnabled = !TrackingEnabled;
@@ -298,17 +375,6 @@ namespace EasyDeliveryCoHeadTracking.Core
             }
         }
 
-        private void HandleToggleReticle()
-        {
-            _reticleEnabled = !_reticleEnabled;
-            _aimReticle.IsVisible = _reticleEnabled;
-            _notificationUI.ShowNotification(
-                _reticleEnabled ? "Reticle: ON" : "Reticle: OFF",
-                _reticleEnabled ? NotificationType.Success : NotificationType.Warning,
-                StatusNotificationSeconds);
-            Logger.LogInfo($"Reticle {(_reticleEnabled ? "enabled" : "disabled")}");
-        }
-
         private void HandleCycleTrackingMode()
         {
             SetTrackingMode((TrackingMode)(((int)_trackingMode + 1) % 3));
@@ -316,23 +382,38 @@ namespace EasyDeliveryCoHeadTracking.Core
             string label = "Tracking: " + _trackingMode.Description();
             _notificationUI.ShowNotification(label, NotificationType.Info, StatusNotificationSeconds);
             Logger.LogInfo(label);
+
+            bool rotation;
+            bool position;
+            TrackingModeChannels.Encode(_trackingMode, out rotation, out position);
+            SaveConfig(c =>
+            {
+                c.RotationEnabled = rotation;
+                c.PositionEnabled = position;
+            });
         }
 
         private void SetTrackingMode(TrackingMode mode)
         {
             _trackingMode = mode;
-            _cameraController.RotationEnabled = mode != TrackingMode.PositionOnly;
-            _cameraController.PositionEnabled = mode != TrackingMode.RotationOnly;
+            bool rotation;
+            bool position;
+            TrackingModeChannels.Encode(mode, out rotation, out position);
+            _cameraController.RotationEnabled = rotation;
+            _cameraController.PositionEnabled = position;
         }
 
         private void HandleToggleYawMode()
         {
-            _cameraController.WorldSpaceYaw = !_cameraController.WorldSpaceYaw;
+            bool worldSpaceYaw = !_cameraController.WorldSpaceYaw;
+            _cameraController.WorldSpaceYaw = worldSpaceYaw;
             _notificationUI.ShowNotification(
-                _cameraController.WorldSpaceYaw ? "Yaw: World-locked" : "Yaw: Camera-local",
+                worldSpaceYaw ? "Yaw: World-locked" : "Yaw: Camera-local",
                 NotificationType.Info,
                 StatusNotificationSeconds);
-            Logger.LogInfo($"Yaw mode: {(_cameraController.WorldSpaceYaw ? "world-locked" : "camera-local")}");
+            Logger.LogInfo($"Yaw mode: {(worldSpaceYaw ? "world-locked" : "camera-local")}");
+
+            SaveConfig(c => c.WorldSpaceYaw = worldSpaceYaw);
         }
 
         private UnityEngine.Vector2 ComputeAimOffset()

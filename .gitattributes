@@ -12,3 +12,6 @@
 
 # Differential test inputs are compared byte for byte, line endings included.
 tests/config_differential/data/** -text
+
+# The committed config is compared byte for byte with the table's render, CRLF included.
+config/CameraUnlock.ini -text

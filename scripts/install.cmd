@@ -21,7 +21,7 @@ set "BEPINEX_ARCH=x64"
 set "BEPINEX_VENDOR_ZIP_NAME="
 set "BEPINEX_SUBFOLDER="
 set "PLUGIN_SUBFOLDER="
-set "MOD_CONTROLS=Controls:&echo   End     - Toggle head tracking on/off&echo   PgUp    - Toggle position tracking&echo   PgDn    - Toggle yaw mode (world/camera-local)&echo   Insert  - Toggle aim reticle"
+set "MOD_CONTROLS=Controls:&echo   End     - Toggle head tracking on/off&echo   PgUp    - Cycle tracking mode&echo   PgDn    - Toggle yaw mode (world/camera-local)"
 :: Not used by this mod. Set blank so a value another mod's wrapper left in
 :: the same console does not reach the body.
 set "IL2CPP_VENDOR_DIR_NAME="
