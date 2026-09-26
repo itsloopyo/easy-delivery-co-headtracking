@@ -1,6 +1,4 @@
 using BepInEx.Configuration;
-using CameraUnlock.Core.Data;
-using CameraUnlock.Core.Math;
 using UnityEngine;
 
 namespace EasyDeliveryCoHeadTracking.Config
@@ -108,13 +106,13 @@ namespace EasyDeliveryCoHeadTracking.Config
                     new AcceptableValueRange<float>(0.0f, 3.0f)));
 
             LocalSmoothing = config.Bind(
-                "Smoothing", "LocalSmoothing", SmoothingUtils.DefaultLocalSmoothing,
+                "Smoothing", "LocalSmoothing", 0.0f,
                 new ConfigDescription(
                     "Smoothing applied when the tracker runs on this machine (loopback). 0 = no smoothing, 1 = heavy.",
                     new AcceptableValueRange<float>(0f, 1f)));
 
             RemoteSmoothing = config.Bind(
-                "Smoothing", "RemoteSmoothing", SmoothingUtils.DefaultRemoteSmoothing,
+                "Smoothing", "RemoteSmoothing", 0.15f,
                 new ConfigDescription(
                     "Smoothing applied when the tracker is a remote device on the network. 0 = no smoothing, 1 = heavy.",
                     new AcceptableValueRange<float>(0f, 1f)));
@@ -142,25 +140,25 @@ namespace EasyDeliveryCoHeadTracking.Config
                     new AcceptableValueRange<float>(0f, 5.0f)));
 
             PositionLimitX = config.Bind(
-                "Position", "PositionLimitX", PositionSettings.Default.LimitX,
+                "Position", "PositionLimitX", 0.30f,
                 new ConfigDescription(
                     "Maximum lateral displacement in meters",
                     new AcceptableValueRange<float>(0.01f, 0.5f)));
 
             PositionLimitY = config.Bind(
-                "Position", "PositionLimitY", PositionSettings.Default.LimitY,
+                "Position", "PositionLimitY", 0.20f,
                 new ConfigDescription(
                     "Maximum vertical displacement in meters",
                     new AcceptableValueRange<float>(0.01f, 0.5f)));
 
             PositionLimitZ = config.Bind(
-                "Position", "PositionLimitZ", PositionSettings.Default.LimitZ,
+                "Position", "PositionLimitZ", 0.40f,
                 new ConfigDescription(
                     "Maximum forward displacement in meters",
                     new AcceptableValueRange<float>(0.01f, 0.5f)));
 
             PositionLimitZBack = config.Bind(
-                "Position", "PositionLimitZBack", PositionSettings.Default.LimitZBack,
+                "Position", "PositionLimitZBack", 0.10f,
                 new ConfigDescription(
                     "Maximum backward displacement in meters",
                     new AcceptableValueRange<float>(0.01f, 0.5f)));

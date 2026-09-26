@@ -9,3 +9,6 @@
 *.gif binary
 *.ico binary
 *.zip binary
+
+# Differential test inputs are compared byte for byte, line endings included.
+tests/config_differential/data/** -text

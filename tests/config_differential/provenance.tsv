@@ -1,0 +1,34 @@
+# What the differential test compares, and where each file came from.
+# Columns: role, source (tag:path, a release asset, or the path in this repo), sha256 of the bytes.
+# v0.2.0 is the newest published release; there is no dev pre-release and no predecessor repo.
+# Its reader is src/EasyDeliveryCoHeadTracking/Config/ConfigManager.cs, which takes no core source:
+# its defaults are literals. The reader frozen into src/EasyDeliveryCoHeadTracking/Legacy comes from
+# 765c565, where the smoothing pair and the position limits are core's constants holding the same
+# values, restructured to fill LegacyConfig and write nothing, so comparison 1 is not empty by
+# construction and runs on every input.
+published reader	v0.2.0:src/EasyDeliveryCoHeadTracking/Config/ConfigManager.cs	5904a3b3f527921cfb00688c17ae159d879a44349e030cb932ad6146b085149d
+oracle copy	tests/config_differential/oracle/ConfigManager.cs	5904a3b3f527921cfb00688c17ae159d879a44349e030cb932ad6146b085149d
+frozen from	765c565:src/EasyDeliveryCoHeadTracking/Config/ConfigManager.cs	e3d6f79505a901fa74eaaee25167a785add1cb7f65d06dcab9fd9125b8c65921
+frozen reader	src/EasyDeliveryCoHeadTracking/Legacy/LegacyConfig.cs	098f89b9ba434ef761a063f8d866f791f5febc2567028b773e58b79f5d1d0434
+frozen reader	src/EasyDeliveryCoHeadTracking/Legacy/LegacyConfigReader.cs	631ce819c6b94bb4104dc77cc79b3f56d7cc3a2029f95d2a48c3211213455186
+frozen reader	src/EasyDeliveryCoHeadTracking/Legacy/LegacyConfigKeys.cs	a711bcb277a646c37560303dda5ba9c7d153879984e48320ea1b39f0b9d0b15d
+BepInEx	vendor/bepinex/BepInEx_win_x64.zip (BepInEx 5.4.23.5), whose BepInEx.dll the test and the first-run harness run	82f9878551030f54657792c0740d9d51a09500eeae1fba21106b0c441e6732c4
+# No published build shipped the plugin .cfg, in a ZIP or as a launcher-manifest.json seed (every
+# seed is BepInEx/config/BepInEx.cfg), so the inputs are what each build writes at its first start.
+# A first-run file is the .cfg that build's own EasyDeliveryCoHeadTracking.dll, taken from its
+# release installer ZIP, writes when its ConfigManager.Initialize runs on a ConfigFile at a path with
+# no file and the plugin's BepInPlugin metadata, as BaseUnityPlugin builds it: the published binary
+# run once under the BepInEx above, with the Unity stubs of pixi run setup. v0.1.0 was built against
+# the game's own assemblies and names KeyCode in UnityEngine.CoreModule, so its run adds a forwarder
+# from that name to the stub's KeyCode. The "Acceptable values" comment lines list the stub's KeyCode
+# members, not the game's; no reader reads a comment line.
+input source	release v0.1.0 EasyDeliveryCoHeadTracking-v0.1.0-installer.zip plugins/EasyDeliveryCoHeadTracking.dll 48665037d57d9699760fe63b48e64ab984119e740295b64d96a1c6788a2a25c8	-
+input	tests/config_differential/data/first-run/v0.1.0.cfg	67f73f7b09e3fbe816771f98572cc4205ee156329884fa364e4985a42f84a689
+input source	release v0.1.1 EasyDeliveryCoHeadTracking-v0.1.1-installer.zip plugins/EasyDeliveryCoHeadTracking.dll 4c0e0634dbaec9c021045b8934966f190f1f36185543f1df45dab3937274286a	-
+input	tests/config_differential/data/first-run/v0.1.1.cfg	9dd5fc378b89cf0f3652bcda6abb8066582a11b5e1db6cd2108ba85f7558ae44
+input source	release v0.1.2 EasyDeliveryCoHeadTracking-v0.1.2-installer.zip plugins/EasyDeliveryCoHeadTracking.dll e17f5d22c880d05f31a98aea1f829edcb8928df301ffe4c12c10296ac9a0e40e	-
+input	tests/config_differential/data/first-run/v0.1.2.cfg	5cb90e93274c6575294b6abdebaefb7b7fd9bdd8fe797203342154898ee8430e
+input source	release v0.1.3 EasyDeliveryCoHeadTracking-v0.1.3-installer.zip plugins/EasyDeliveryCoHeadTracking.dll 246726c30d26f97e9f236a628516e478d00f5d5e76993b9ed6b7ddb30ed98c3f	-
+input	tests/config_differential/data/first-run/v0.1.3.cfg	2c02a9561ee3122c15ad1aaaf63f2870a2ab974a9b4d06720c80d8c0233b4b7b
+input source	release v0.2.0 EasyDeliveryCoHeadTracking-v0.2.0-installer.zip plugins/EasyDeliveryCoHeadTracking.dll 54c0b21fdc2a390f10b621e9b69b9bb9bae13a8ab4449d483287e036fae7e7a4	-
+input	tests/config_differential/data/first-run/v0.2.0.cfg	2d6f6a131f5b8a9c7c16616a3eedf944cabbc742c021036d3be85f3244acd920

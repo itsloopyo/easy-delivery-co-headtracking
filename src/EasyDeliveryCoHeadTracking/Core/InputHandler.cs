@@ -7,19 +7,19 @@ namespace EasyDeliveryCoHeadTracking.Core
 {
     public class InputHandler
     {
-        private readonly ConfigManager _config;
+        private readonly ModConfig _config;
 
         public event Action OnTogglePressed;
         public event Action OnToggleReticlePressed;
         public event Action OnCycleTrackingModePressed;
         public event Action OnToggleYawModePressed;
 
-        public KeyCode ToggleKey => _config.ToggleKey.Value;
-        public KeyCode ToggleReticleKey => _config.ToggleReticleKey.Value;
-        public KeyCode CycleTrackingModeKey => _config.CycleTrackingModeKey.Value;
-        public KeyCode YawModeKey => _config.YawModeKey.Value;
+        public KeyCode ToggleKey => _config.ToggleKey;
+        public KeyCode ToggleReticleKey => _config.ToggleReticleKey;
+        public KeyCode CycleTrackingModeKey => _config.CycleTrackingModeKey;
+        public KeyCode YawModeKey => _config.YawModeKey;
 
-        public InputHandler(ConfigManager config)
+        public InputHandler(ModConfig config)
         {
             _config = config;
         }
@@ -27,15 +27,15 @@ namespace EasyDeliveryCoHeadTracking.Core
         public void CheckInput()
         {
             // Common case: nothing pressed this frame. Skip the 4 GetKeyDown probes and
-            // 4 ConfigEntry.Value reads. Holding keys without a fresh down-edge also skips,
+            // 4 config reads. Holding keys without a fresh down-edge also skips,
             // matching Dispatch's GetKeyDown semantics.
             if (!Input.anyKeyDown)
                 return;
 
-            Dispatch(_config.ToggleKey.Value, ChordHotkeys.ToggleLetter, OnTogglePressed);
-            Dispatch(_config.ToggleReticleKey.Value, ChordHotkeys.FifthToggleLetter, OnToggleReticlePressed);
-            Dispatch(_config.CycleTrackingModeKey.Value, ChordHotkeys.PositionLetter, OnCycleTrackingModePressed);
-            Dispatch(_config.YawModeKey.Value, ChordHotkeys.FourthToggleLetter, OnToggleYawModePressed);
+            Dispatch(_config.ToggleKey, ChordHotkeys.ToggleLetter, OnTogglePressed);
+            Dispatch(_config.ToggleReticleKey, ChordHotkeys.FifthToggleLetter, OnToggleReticlePressed);
+            Dispatch(_config.CycleTrackingModeKey, ChordHotkeys.PositionLetter, OnCycleTrackingModePressed);
+            Dispatch(_config.YawModeKey, ChordHotkeys.FourthToggleLetter, OnToggleYawModePressed);
         }
 
         private static void Dispatch(KeyCode primary, KeyCode chordLetter, Action handler)

@@ -13,6 +13,7 @@ using CameraUnlock.Core.Unity.UI;
 using CameraUnlock.Core.Unity.Utilities;
 using EasyDeliveryCoHeadTracking.Camera;
 using EasyDeliveryCoHeadTracking.Config;
+using EasyDeliveryCoHeadTracking.Legacy;
 
 namespace EasyDeliveryCoHeadTracking.Core
 {
@@ -33,7 +34,7 @@ namespace EasyDeliveryCoHeadTracking.Core
         public bool TrackingEnabled { get; private set; }
         public ViewMatrixTrackingController CameraController => _cameraController;
 
-        private ConfigManager _config;
+        private ModConfig _config;
         private OpenTrackReceiver _receiver;
         private TrackingProcessor _processor;
         private PoseInterpolator _interpolator;
@@ -64,8 +65,11 @@ namespace EasyDeliveryCoHeadTracking.Core
             Instance = this;
             Logger.LogInfo($"{PluginName} v{PluginVersion} initializing...");
 
-            _config = new ConfigManager();
-            _config.Initialize(Config);
+            _config = LegacyConfigMap.ToRuntime(LegacyConfigReader.Read(Config, out _));
+            // The reader writes nothing; this is the write BepInEx's Bind made on every start,
+            // which creates the .cfg on the first one.
+            Config.SaveOnConfigSet = true;
+            Config.Save();
 
             BuildPipeline();
             BuildCameraController();
@@ -73,14 +77,14 @@ namespace EasyDeliveryCoHeadTracking.Core
             BuildInput();
             BuildUI();
 
-            _receiver.Start(_config.UDPPort.Value);
-            TrackingEnabled = _config.EnabledOnStartup.Value;
+            _receiver.Start(_config.UdpPort);
+            TrackingEnabled = _config.EnabledOnStartup;
             _initialized = true;
 
             Logger.LogInfo($"{PluginName} initialized. Tracking {(TrackingEnabled ? "enabled" : "disabled")}");
-            Logger.LogInfo($"Listening on UDP port {_config.UDPPort.Value}");
+            Logger.LogInfo($"Listening on UDP port {_config.UdpPort}");
 
-            if (_config.ShowStartupNotification.Value)
+            if (_config.ShowStartupNotification)
             {
                 string status = TrackingEnabled ? "Head Tracking: ON" : "Head Tracking: OFF";
                 _notificationUI.ShowNotification($"{status}\n{BuildHotkeyInfo()}", StartupNotificationSeconds);
@@ -94,12 +98,12 @@ namespace EasyDeliveryCoHeadTracking.Core
 
             _processor = new TrackingProcessor
             {
-                LocalSmoothing = _config.LocalSmoothing.Value,
-                RemoteSmoothing = _config.RemoteSmoothing.Value,
+                LocalSmoothing = _config.LocalSmoothing,
+                RemoteSmoothing = _config.RemoteSmoothing,
                 Sensitivity = new SensitivitySettings(
-                    _config.YawSensitivity.Value,
-                    _config.PitchSensitivity.Value,
-                    _config.RollSensitivity.Value,
+                    _config.YawSensitivity,
+                    _config.PitchSensitivity,
+                    _config.RollSensitivity,
                     invertYaw: false,
                     invertPitch: true,
                     invertRoll: false),
@@ -110,17 +114,17 @@ namespace EasyDeliveryCoHeadTracking.Core
             _positionProcessor = new PositionProcessor
             {
                 Settings = PositionSettings.Symmetric(
-                    _config.PositionSensitivityX.Value,
-                    _config.PositionSensitivityY.Value,
-                    _config.PositionSensitivityZ.Value,
-                    _config.PositionLimitX.Value,
-                    _config.PositionLimitY.Value,
-                    _config.PositionLimitZ.Value,
-                    _config.PositionLimitZBack.Value,
-                    _config.LocalSmoothing.Value,
-                    _config.RemoteSmoothing.Value,
+                    _config.PositionSensitivityX,
+                    _config.PositionSensitivityY,
+                    _config.PositionSensitivityZ,
+                    _config.PositionLimitX,
+                    _config.PositionLimitY,
+                    _config.PositionLimitZ,
+                    _config.PositionLimitZBack,
+                    _config.LocalSmoothing,
+                    _config.RemoteSmoothing,
                     invertX: true, invertY: false, invertZ: false),
-                TrackerPivotForward = _config.TrackerPivotForward.Value
+                TrackerPivotForward = _config.TrackerPivotForward
             };
             _positionInterpolator = new PositionInterpolator();
         }
@@ -130,11 +134,11 @@ namespace EasyDeliveryCoHeadTracking.Core
             _cameraController = new ViewMatrixTrackingController(
                 _receiver, _processor, _interpolator,
                 _positionProcessor, _positionInterpolator);
-            _cameraController.WorldSpaceYaw = _config.WorldSpaceYaw.Value;
+            _cameraController.WorldSpaceYaw = _config.WorldSpaceYaw;
 
             // Seed the mode from config so the first cycle press transitions away
             // from the current mode rather than back to it.
-            SetTrackingMode(_config.PositionEnabled.Value
+            SetTrackingMode(_config.PositionEnabled
                 ? TrackingMode.RotationAndPosition
                 : TrackingMode.RotationOnly);
             _cameraController.Enable();
@@ -159,7 +163,7 @@ namespace EasyDeliveryCoHeadTracking.Core
         private void BuildUI()
         {
             _notificationUI = new NotificationUI();
-            _reticleEnabled = _config.ShowReticle.Value;
+            _reticleEnabled = _config.ShowReticle;
             _aimOffsetCache = new PerFrameCache<UnityEngine.Vector2>(ComputeAimOffset);
 
             _aimReticle = gameObject.AddComponent<IMGUIReticle>();
@@ -214,7 +218,7 @@ namespace EasyDeliveryCoHeadTracking.Core
             _hasCachedConnectionLocality = true;
 
             float effective = SmoothingUtils.GetEffectiveSmoothing(
-                _config.LocalSmoothing.Value, _config.RemoteSmoothing.Value, isRemoteConnection);
+                _config.LocalSmoothing, _config.RemoteSmoothing, isRemoteConnection);
             Logger.LogInfo($"Tracker source is {(isRemoteConnection ? "remote" : "local")}, smoothing={effective:F2}");
         }
 
@@ -263,7 +267,7 @@ namespace EasyDeliveryCoHeadTracking.Core
             // evidence in the log that tracker packets ever arrived, so it is not gated.
             Logger.LogInfo(isReceiving ? "OpenTrack connection established" : "OpenTrack connection lost");
 
-            if (_config.ShowConnectionNotifications.Value)
+            if (_config.ShowConnectionNotifications)
             {
                 if (isReceiving)
                 {
