@@ -87,9 +87,10 @@ namespace EasyDeliveryCoHeadTracking.Core
         /// <summary>
         /// The settings live in BepInEx\config\CameraUnlock.ini, read and written by core's config
         /// owner, with rows set to default following the player's Defaults.ini. Nothing is bound
-        /// through BepInEx's ConfigFile at runtime, so ConfigurationManager does not list them.
-        /// While CameraUnlock.ini is absent the owner imports the plugin's .cfg, the file every
-        /// earlier build read, through the frozen v0.2.0 reader, and never writes that file.
+        /// on the plugin's Config, so ConfigurationManager does not list them. While
+        /// CameraUnlock.ini is absent the owner imports the plugin's .cfg, the file every earlier
+        /// build read, through the frozen v0.2.0 reader on a ConfigFile of its own, and never
+        /// writes that file.
         /// </summary>
         private void LoadConfig()
         {
@@ -97,7 +98,7 @@ namespace EasyDeliveryCoHeadTracking.Core
             {
                 Path = ConfigPath,
                 Table = EasyDeliveryCoConfig.Table(),
-                Import = LegacyConfigImport.For(Config),
+                Import = LegacyConfigImport.For(Info.Metadata),
                 LegacySourcePath = Config.ConfigFilePath,
                 Header = new RenderHeader(EasyDeliveryCoConfig.DisplayName),
                 Defaults = DefaultsFile.PerUser(),

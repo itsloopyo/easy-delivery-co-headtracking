@@ -11,7 +11,7 @@ using EasyDeliveryCoHeadTracking.Legacy;
 
 namespace EasyDeliveryCoHeadTracking.Tests.Differential
 {
-    /// <summary>The import on one input: the frozen reader on the plugin's ConfigFile, then the map.</summary>
+    /// <summary>The import on one input: the frozen reader on a ConfigFile over the legacy file, then the map.</summary>
     internal sealed class ImportOutcome
     {
         public string Error;
@@ -85,17 +85,17 @@ namespace EasyDeliveryCoHeadTracking.Tests.Differential
                 written = File.GetLastWriteTimeUtc(folder.LegacyPath);
             }
 
-            ConfigFile pluginConfig;
+            // BaseUnityPlugin builds the plugin's Config, which reads the file, before Awake runs.
             try
             {
-                pluginConfig = new ConfigFile(folder.LegacyPath, false);
+                new ConfigFile(folder.LegacyPath, false);
             }
             catch (ArgumentException e)
             {
                 return new MigrationOutcome { Error = LegacyOutcome.ErrorOf(e) };
             }
 
-            ConfigLoadResult<EasyDeliveryCoConfig> loaded = Owner(folder, pluginConfig, defaults).Load();
+            ConfigLoadResult<EasyDeliveryCoConfig> loaded = Owner(folder, defaults).Load();
             var outcome = new MigrationOutcome
             {
                 Status = loaded.Status,
@@ -121,8 +121,7 @@ namespace EasyDeliveryCoHeadTracking.Tests.Differential
             if (outcome.Created != null)
             {
                 DateTime createdAt = File.GetLastWriteTimeUtc(configPath);
-                var again = new ConfigFile(folder.LegacyPath, false);
-                ConfigLoadResult<EasyDeliveryCoConfig> second = Owner(folder, again, defaults).Load();
+                ConfigLoadResult<EasyDeliveryCoConfig> second = Owner(folder, defaults).Load();
                 if (second.Status != ConfigLoadStatus.Canonical)
                     throw new InvalidOperationException(input.Name + ": the second load is " + second.Status);
                 if (Describe(second.Config) != Describe(loaded.Config))
@@ -148,13 +147,13 @@ namespace EasyDeliveryCoHeadTracking.Tests.Differential
                 throw new InvalidOperationException(input.Name + ": the legacy file's read-only attribute changed");
         }
 
-        private static ConfigOwner<EasyDeliveryCoConfig> Owner(LegacyFolder folder, ConfigFile pluginConfig, DefaultsFile defaults)
+        private static ConfigOwner<EasyDeliveryCoConfig> Owner(LegacyFolder folder, DefaultsFile defaults)
         {
             return new ConfigOwner<EasyDeliveryCoConfig>(new ConfigOwnerOptions<EasyDeliveryCoConfig>
             {
                 Path = Path.Combine(folder.Path, "CameraUnlock.ini"),
                 Table = EasyDeliveryCoConfig.Table(),
-                Import = LegacyConfigImport.For(pluginConfig),
+                Import = LegacyConfigImport.For(null),
                 LegacySourcePath = folder.LegacyPath,
                 Header = new RenderHeader(EasyDeliveryCoConfig.DisplayName),
                 Defaults = defaults,

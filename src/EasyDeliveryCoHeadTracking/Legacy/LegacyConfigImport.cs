@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using BepInEx;
 using BepInEx.Configuration;
 using CameraUnlock.Core.Config;
 using CameraUnlock.Core.Data;
@@ -13,8 +14,13 @@ namespace EasyDeliveryCoHeadTracking.Legacy
 {
     /// <summary>
     /// The import the config owner runs on com.cameraunlock.easydeliveryco.headtracking.cfg while
-    /// CameraUnlock.ini is absent: <see cref="LegacyConfigReader"/> on the plugin's own ConfigFile,
-    /// then the map into <see cref="EasyDeliveryCoConfig"/>.
+    /// CameraUnlock.ini is absent: <see cref="LegacyConfigReader"/> on a ConfigFile of its own over
+    /// that file, then the map into <see cref="EasyDeliveryCoConfig"/>.
+    /// <para>
+    /// Not the plugin's Config: ConfigurationManager lists every entry bound there, and one bound
+    /// by the import would sit in its window for the rest of the session doing nothing. A ConfigFile
+    /// built as BaseUnityPlugin builds the plugin's reads the file the same way.
+    /// </para>
     /// </summary>
     internal static class LegacyConfigImport
     {
@@ -24,22 +30,24 @@ namespace EasyDeliveryCoHeadTracking.Legacy
         /// <summary>The position multiplier every published build shipped on all three axes.</summary>
         public const float ShippedPositionSensitivity = 1.0f;
 
-        /// <param name="pluginConfig">The plugin's Config, whose file is the legacy file.</param>
-        public static LegacyImport<EasyDeliveryCoConfig> For(ConfigFile pluginConfig)
+        /// <param name="plugin">The plugin's metadata, which BaseUnityPlugin hands its own ConfigFile.</param>
+        public static LegacyImport<EasyDeliveryCoConfig> For(BepInPlugin plugin)
         {
-            return new LegacyImport<EasyDeliveryCoConfig>((input, config) => Run(pluginConfig, input, config), LegacyConfigKeys.All());
+            return new LegacyImport<EasyDeliveryCoConfig>(
+                (input, config) => Run(new ConfigFile(input.Path, false, plugin), input, config), LegacyConfigKeys.All());
         }
 
-        public static ImportResult Run(ConfigFile pluginConfig, LegacyImportInput input, EasyDeliveryCoConfig config)
+        /// <param name="legacyFile">A ConfigFile over the legacy file that nothing has bound to.</param>
+        public static ImportResult Run(ConfigFile legacyFile, LegacyImportInput input, EasyDeliveryCoConfig config)
         {
-            if (!string.Equals(Path.GetFullPath(input.Path), Path.GetFullPath(pluginConfig.ConfigFilePath), StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(Path.GetFullPath(input.Path), Path.GetFullPath(legacyFile.ConfigFilePath), StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException("the owner hands over " + input.Path + ", and the plugin's ConfigFile reads "
-                                                    + pluginConfig.ConfigFilePath);
+                throw new InvalidOperationException("the owner hands over " + input.Path + ", and the ConfigFile reads "
+                                                    + legacyFile.ConfigFilePath);
             }
 
             bool found;
-            LegacyConfig legacy = LegacyConfigReader.Read(pluginConfig, out found);
+            LegacyConfig legacy = LegacyConfigReader.Read(legacyFile, out found);
             var dropped = new List<DroppedValue>();
             var poseShaping = new List<PoseShapingValue>();
             Map(legacy, config, dropped, poseShaping);
