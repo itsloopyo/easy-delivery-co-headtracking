@@ -192,8 +192,8 @@ namespace EasyDeliveryCoHeadTracking.Tests.Differential
 
     /// <summary>
     /// What the converted plugin sets up from its settings, in the same terms as
-    /// <see cref="LegacyStartup"/>: every sensitivity is the shipped identity, in code now, and the
-    /// reticle is drawn with no toggle.
+    /// <see cref="LegacyStartup"/>: every sensitivity is the shipped identity, in code now, and no
+    /// aim dot is drawn.
     /// </summary>
     internal static class ConvertedStartup
     {
@@ -208,7 +208,7 @@ namespace EasyDeliveryCoHeadTracking.Tests.Differential
             s["WorldSpaceYaw"] = LegacyStartup.Text(c.WorldSpaceYaw);
             s["ShowStartupNotification"] = LegacyStartup.Text(c.ShowStartupNotification);
             s["ShowConnectionNotifications"] = LegacyStartup.Text(c.ShowConnectionNotifications);
-            s["ReticleVisible"] = "true";
+            s["ReticleVisible"] = "false";
             s["LocalSmoothing"] = LegacyStartup.Text(c.LocalSmoothing);
             s["RemoteSmoothing"] = LegacyStartup.Text(c.RemoteSmoothing);
             s["RotationSensitivity"] = one + " " + one + " " + one;

@@ -63,16 +63,16 @@ namespace EasyDeliveryCoHeadTracking.Legacy
             config.CycleTrackingModeKeyName = HotkeyList(legacy.CycleTrackingModeKey, KeyCode.G);
             config.YawModeKeyName = HotkeyList(legacy.YawModeKey, KeyCode.H);
 
-            // The reticle toggle is gone for everyone who had it bound, and the reticle is drawn
-            // whenever head tracking turns the view in gameplay. ShowReticle=true is what the mod
-            // does now, so only a player who kept it hidden, as it shipped, loses a choice.
+            // The reticle toggle is gone for everyone who had it bound, and the mod draws no aim
+            // dot. ShowReticle=false, as it shipped, is what the mod does now, so only a player who
+            // turned the dot on loses a choice.
             if (legacy.ToggleReticleKey != KeyCode.None)
             {
                 dropped.Add(new DroppedValue(DropRule.Reticle, "Keybindings", "ToggleReticleKey", KeyText((int)legacy.ToggleReticleKey)));
             }
-            if (!legacy.ShowReticle)
+            if (legacy.ShowReticle)
             {
-                dropped.Add(new DroppedValue(DropRule.Reticle, "UI", "ShowReticle", "false"));
+                dropped.Add(new DroppedValue(DropRule.Reticle, "UI", "ShowReticle", "true"));
             }
 
             LegacyPoseShaping.Record(legacy.YawSensitivity, ShippedRotationSensitivity, "Sensitivity", "YawSensitivity", poseShaping, dropped);

@@ -164,11 +164,13 @@ namespace EasyDeliveryCoHeadTracking.Tests.Differential
                 // values are what the runtime applies now, so they must equal what v0.2.0 applied.
                 bool rotationDropped = result.Dropped.Any(d => d.Rule == DropRule.PoseShaping && d.Section == "Sensitivity");
                 bool positionDropped = result.Dropped.Any(d => d.Rule == DropRule.PoseShaping && d.Section == "Position");
+                bool reticleDropped = result.Dropped.Any(d => d.Rule == DropRule.Reticle && d.Key == "ShowReticle");
                 foreach (string key in before.Keys)
                 {
                     if (key == "RotationSensitivity" && rotationDropped) continue;
                     if (key == "PositionSensitivity" && positionDropped) continue;
-                    if (key == "ReticleVisible" || key == "ReticleToggleKey") continue;
+                    if (key == "ReticleVisible" && reticleDropped) continue;
+                    if (key == "ReticleToggleKey") continue;
                     if (before[key] != after[key]) failures.Add(input.Name + ": " + key + " " + before[key] + " -> " + after[key]);
                 }
                 if (after.ContainsKey("ReticleToggleKey")) failures.Add(input.Name + ": a reticle toggle");
@@ -183,7 +185,7 @@ namespace EasyDeliveryCoHeadTracking.Tests.Differential
                 };
                 if (old.ToggleReticleKey != UnityEngine.KeyCode.None)
                     expectedDrops.Add("Reticle Keybindings ToggleReticleKey " + LegacyStartup.KeyName((int)old.ToggleReticleKey));
-                if (!old.ShowReticle) expectedDrops.Add("Reticle UI ShowReticle false");
+                if (old.ShowReticle) expectedDrops.Add("Reticle UI ShowReticle true");
                 shaping("Sensitivity", "YawSensitivity", old.YawSensitivity, 1.0f);
                 shaping("Sensitivity", "PitchSensitivity", old.PitchSensitivity, 1.0f);
                 shaping("Sensitivity", "RollSensitivity", old.RollSensitivity, 1.0f);
@@ -230,7 +232,7 @@ namespace EasyDeliveryCoHeadTracking.Tests.Differential
             Assert.Equal(committed.Replace("TrackerPivotForward=default", "TrackerPivotForward=0.08"),
                 Encoding.ASCII.GetString(migration.Created));
             Assert.Contains(migration.Log, l => l.Contains("not carried: [Keybindings] ToggleReticleKey=Insert"));
-            Assert.Contains(migration.Log, l => l.Contains("not carried: [UI] ShowReticle=false"));
+            Assert.DoesNotContain(migration.Log, l => l.Contains("ShowReticle"));
         }
 
         /// <summary>Every KeyCode a .cfg can name converts to the key name that reads back as it.</summary>

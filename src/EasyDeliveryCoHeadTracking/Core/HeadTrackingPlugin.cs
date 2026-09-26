@@ -3,17 +3,14 @@ using System.Collections.Generic;
 using System.IO;
 using BepInEx;
 using BepInEx.Logging;
-using CameraUnlock.Core.Aim;
 using CameraUnlock.Core.Config;
 using CameraUnlock.Core.Data;
 using CameraUnlock.Core.Math;
 using CameraUnlock.Core.Processing;
 using CameraUnlock.Core.Protocol;
 using CameraUnlock.Core.Tracking;
-using CameraUnlock.Core.Unity.Rendering;
 using CameraUnlock.Core.Unity.Tracking;
 using CameraUnlock.Core.Unity.UI;
-using CameraUnlock.Core.Unity.Utilities;
 using EasyDeliveryCoHeadTracking.Camera;
 using EasyDeliveryCoHeadTracking.Config;
 using EasyDeliveryCoHeadTracking.Legacy;
@@ -30,8 +27,6 @@ namespace EasyDeliveryCoHeadTracking.Core
         private const float StartupNotificationSeconds = 4f;
         private const float StatusNotificationSeconds = 1.5f;
         private const float ConfigNotificationSeconds = 8f;
-        private const int ReticleBaseSizeAt1080p = 6;
-        private const int ReticleOutlineWidthAt1080p = 2;
 
         public static HeadTrackingPlugin Instance { get; private set; }
         public new ManualLogSource Logger => base.Logger;
@@ -49,7 +44,6 @@ namespace EasyDeliveryCoHeadTracking.Core
         private GameStateDetector _gameStateDetector;
         private InputHandler _inputHandler;
         private NotificationUI _notificationUI;
-        private IMGUIReticle _aimReticle;
         private bool _wasReceiving;
         private TrackingMode _trackingMode;
         private bool _initialized;
@@ -58,11 +52,6 @@ namespace EasyDeliveryCoHeadTracking.Core
         // tracker actually switches between a same-machine and a remote source.
         private bool _cachedIsRemoteConnection;
         private bool _hasCachedConnectionLocality;
-
-        // The aim offset is read from IMGUIReticle.OnGUI, which Unity fires multiple
-        // times per frame (Layout + Repaint at minimum). The inputs (LastTrackingYaw/Pitch/Roll
-        // and FOV/aspect/screen) don't change between OnGUI events within a frame.
-        private PerFrameCache<UnityEngine.Vector2> _aimOffsetCache;
 
         private void Awake()
         {
@@ -78,7 +67,6 @@ namespace EasyDeliveryCoHeadTracking.Core
             BuildCameraController();
             BuildGameStateDetector();
             BuildInput();
-            BuildReticle();
 
             _receiver.Start(_config.UdpPort);
             TrackingEnabled = _config.EnableOnStartup;
@@ -241,23 +229,6 @@ namespace EasyDeliveryCoHeadTracking.Core
             _inputHandler.OnToggleYawModePressed += HandleToggleYawMode;
         }
 
-        private void BuildReticle()
-        {
-            _aimOffsetCache = new PerFrameCache<UnityEngine.Vector2>(ComputeAimOffset);
-
-            _aimReticle = gameObject.AddComponent<IMGUIReticle>();
-            _aimReticle.Style = ReticleStyle.Dot;
-            _aimReticle.BaseSizeAt1080p = ReticleBaseSizeAt1080p;
-            _aimReticle.OutlineWidthAt1080p = ReticleOutlineWidthAt1080p;
-            _aimReticle.ReticleColor = UnityEngine.Color.white;
-            _aimReticle.OutlineColor = UnityEngine.Color.black;
-            _aimReticle.IsVisible = true;
-            _aimReticle.InitializeWithOffset(
-                getOffset: _aimOffsetCache.Get,
-                shouldDraw: () => _gameStateDetector.IsGameplayActive
-                                  && _cameraController.IsApplyingTracking);
-        }
-
         private string BuildHotkeyInfo()
         {
             return $"[{_config.ToggleKeyName}] Toggle, " +
@@ -414,30 +385,6 @@ namespace EasyDeliveryCoHeadTracking.Core
             Logger.LogInfo($"Yaw mode: {(worldSpaceYaw ? "world-locked" : "camera-local")}");
 
             SaveConfig(c => c.WorldSpaceYaw = worldSpaceYaw);
-        }
-
-        private UnityEngine.Vector2 ComputeAimOffset()
-        {
-            var cam = _cameraController.MainCamera;
-            if (cam == null)
-                return UnityEngine.Vector2.zero;
-
-            float horizontalFov = ScreenOffsetCalculator.CalculateHorizontalFov(cam.fieldOfView, cam.aspect);
-            float offsetX, offsetY;
-            ScreenOffsetCalculator.Calculate(
-                _cameraController.LastTrackingYaw,
-                _cameraController.LastTrackingPitch,
-                _cameraController.LastTrackingRoll,
-                horizontalFov,
-                cam.fieldOfView,
-                UnityEngine.Screen.width,
-                UnityEngine.Screen.height,
-                compensationScale: 1f,
-                out offsetX,
-                out offsetY);
-
-            // ScreenOffsetCalculator Y is up-positive, matching IMGUIReticle's offset convention.
-            return new UnityEngine.Vector2(offsetX, offsetY);
         }
 
         private void OnGameStateChanged(GameState newState)

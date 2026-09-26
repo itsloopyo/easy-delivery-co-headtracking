@@ -140,9 +140,6 @@ These are the default keys. Each action reads a list of keys from `CameraUnlock.
 (`ToggleKey`, `CycleTrackingModeKey`, `YawModeKey`), and any key in the list fires it, so you can
 add, rebind or remove any of them, the chords included.
 
-The aim dot is drawn whenever head tracking is turning the view during gameplay. It has no
-toggle.
-
 ## Configuration
 
 <!-- cameraunlock:config -->

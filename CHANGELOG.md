@@ -17,7 +17,6 @@
 - A hotkey bound to a plain key no longer fires while Ctrl and Shift are both held, so Ctrl+Shift with that key reaches only a binding that names the chord.
 - On Linux and macOS without Wine or Proton, this version reads its settings and saves none: it creates no `CameraUnlock.ini`, reads your settings from `com.cameraunlock.easydeliveryco.headtracking.cfg` again at every start while there is no `CameraUnlock.ini`, and a change made in game lasts until the game closes.
 - The tracking mode (`Page Up`) and the yaw mode (`Page Down`) you pick are saved to `CameraUnlock.ini` and are what the next start begins with. Earlier versions started every session from the file's settings. `End` still changes the current session only.
-- The aim dot is drawn whenever head tracking is turning the view during gameplay. Earlier versions hid it unless `ShowReticle` was on or `Insert` was pressed.
 - `TrackerPivotForward` in a new `CameraUnlock.ini` is `default`, whose built-in value is 0.0, where earlier versions started at 0.08. A setting imported from `com.cameraunlock.easydeliveryco.headtracking.cfg` keeps the value it held there.
 
 ### Added
@@ -28,7 +27,7 @@
 
 ### Removed
 
-- The key that toggled the reticle (`Insert`, `Ctrl+Shift+U`), and the reticle settings (`ShowReticle`, `ToggleReticleKey`).
+- The aim dot, which earlier versions drew only with `ShowReticle` on or after `Insert` turned it on, with the key that toggled it (`Insert`, `Ctrl+Shift+U`) and its settings (`ShowReticle`, `ToggleReticleKey`).
 - The sensitivity, scale, deadzone, response curve and axis inversion settings (`YawSensitivity`, `PitchSensitivity`, `RollSensitivity`, `PositionSensitivityX`, `PositionSensitivityY`, `PositionSensitivityZ`). Set these in your tracker app instead.
 - With these settings at their shipped defaults the camera moves as it did before.
 
