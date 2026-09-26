@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 using BepInEx.Configuration;
 using CameraUnlock.Core.Config.Testing;
 using CameraUnlock.Core.Input;
@@ -127,15 +128,26 @@ namespace EasyDeliveryCoHeadTracking.Tests.Differential
         }
     }
 
-    /// <summary>A scratch folder holding at most the legacy file, deleted on dispose.</summary>
-    internal sealed class LegacyFolder : IDisposable
+    /// <summary>
+    /// A scratch folder holding at most the legacy file. <see cref="With{T}"/> deletes it only once
+    /// the run inside has returned, so an exception from the run reaches the test as it was thrown,
+    /// and the folder it failed in is left behind to look at.
+    /// </summary>
+    internal sealed class LegacyFolder
     {
-        public LegacyFolder(DifferentialInput input)
+        private LegacyFolder(DifferentialInput input)
         {
-            Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "edc-diff-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(Path);
+            Path = Scratch.Create("edc-diff-");
             LegacyPath = System.IO.Path.Combine(Path, Inputs.LegacyName);
             if (input.Bytes != null) File.WriteAllBytes(LegacyPath, input.Bytes);
+        }
+
+        public static T With<T>(DifferentialInput input, Func<LegacyFolder, T> run)
+        {
+            var folder = new LegacyFolder(input);
+            T result = run(folder);
+            Scratch.Delete(folder.Path);
+            return result;
         }
 
         public string Path { get; }
@@ -148,11 +160,40 @@ namespace EasyDeliveryCoHeadTracking.Tests.Differential
             Array.Sort(names, StringComparer.Ordinal);
             return names;
         }
+    }
 
-        public void Dispose()
+    internal static class Scratch
+    {
+        private const int DeleteAttempts = 20;
+
+        public static string Create(string prefix)
         {
-            foreach (string file in Directory.GetFiles(Path)) File.SetAttributes(file, FileAttributes.Normal);
-            Directory.Delete(Path, true);
+            string path = Path.Combine(Path.GetTempPath(), prefix + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(path);
+            return path;
+        }
+
+        /// <summary>
+        /// Windows can hold a file open for a moment after the process that wrote it closed it, a
+        /// virus scanner reading it being the usual reason, and a folder delete then fails with a
+        /// sharing violation or on a part of the path already gone. Thousands of runs in parallel
+        /// hit that often enough to fail a build, so the delete is tried again, for about five
+        /// seconds, until the folder is gone.
+        /// </summary>
+        public static void Delete(string path)
+        {
+            for (int attempt = 1; Directory.Exists(path); attempt++)
+            {
+                try
+                {
+                    foreach (string file in Directory.GetFiles(path)) File.SetAttributes(file, FileAttributes.Normal);
+                    Directory.Delete(path, true);
+                }
+                catch (Exception e) when ((e is IOException || e is UnauthorizedAccessException) && attempt < DeleteAttempts)
+                {
+                    Thread.Sleep(attempt * 25);
+                }
+            }
         }
     }
 
@@ -186,7 +227,7 @@ namespace EasyDeliveryCoHeadTracking.Tests.Differential
     {
         public static LegacyOutcome Run(DifferentialInput input)
         {
-            using (var folder = new LegacyFolder(input))
+            return LegacyFolder.With(input, folder =>
             {
                 ConfigManager manager;
                 try
@@ -230,7 +271,7 @@ namespace EasyDeliveryCoHeadTracking.Tests.Differential
                         TrackerPivotForward = manager.TrackerPivotForward.Value,
                     },
                 };
-            }
+            });
         }
     }
 
@@ -242,7 +283,7 @@ namespace EasyDeliveryCoHeadTracking.Tests.Differential
     {
         public static LegacyOutcome Run(DifferentialInput input)
         {
-            using (var folder = new LegacyFolder(input))
+            return LegacyFolder.With(input, folder =>
             {
                 string[] before = folder.Entries();
                 DateTime written = input.Bytes == null ? DateTime.MinValue : File.GetLastWriteTimeUtc(folder.LegacyPath);
@@ -267,7 +308,7 @@ namespace EasyDeliveryCoHeadTracking.Tests.Differential
                         throw new InvalidOperationException(input.Name + ": the frozen reader touched the legacy file");
                 }
                 return outcome;
-            }
+            });
         }
     }
 

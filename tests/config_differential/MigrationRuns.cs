@@ -20,7 +20,7 @@ namespace EasyDeliveryCoHeadTracking.Tests.Differential
 
         public static ImportOutcome Run(DifferentialInput input)
         {
-            using (var folder = new LegacyFolder(input))
+            return LegacyFolder.With(input, folder =>
             {
                 ConfigFile file;
                 try
@@ -36,7 +36,7 @@ namespace EasyDeliveryCoHeadTracking.Tests.Differential
                 EasyDeliveryCoConfig.Table().Apply(CanonicalIni.Parse(new byte[0]), config);
                 ImportResult result = LegacyConfigImport.Run(file, new LegacyImportInput(folder.LegacyPath), config);
                 return new ImportOutcome { Result = result, Config = config };
-            }
+            });
         }
     }
 
@@ -58,21 +58,12 @@ namespace EasyDeliveryCoHeadTracking.Tests.Differential
         /// the owner creates it with the built-in values.</param>
         public static MigrationOutcome Run(DifferentialInput input, string defaultsIni, bool readOnly)
         {
-            string defaultsDir = Path.Combine(Path.GetTempPath(), "edc-defaults-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(defaultsDir);
-            try
-            {
-                string defaultsPath = Path.Combine(defaultsDir, "Defaults.ini");
-                if (defaultsIni != null) File.WriteAllText(defaultsPath, defaultsIni, Encoding.ASCII);
-                using (var folder = new LegacyFolder(input))
-                {
-                    return Run(input, folder, DefaultsFile.At(defaultsPath), readOnly);
-                }
-            }
-            finally
-            {
-                Directory.Delete(defaultsDir, true);
-            }
+            string defaultsDir = Scratch.Create("edc-defaults-");
+            string defaultsPath = Path.Combine(defaultsDir, "Defaults.ini");
+            if (defaultsIni != null) File.WriteAllText(defaultsPath, defaultsIni, Encoding.ASCII);
+            MigrationOutcome outcome = LegacyFolder.With(input, folder => Run(input, folder, DefaultsFile.At(defaultsPath), readOnly));
+            Scratch.Delete(defaultsDir);
+            return outcome;
         }
 
         private static MigrationOutcome Run(DifferentialInput input, LegacyFolder folder, DefaultsFile defaults, bool readOnly)
