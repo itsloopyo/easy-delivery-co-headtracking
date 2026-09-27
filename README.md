@@ -2,18 +2,11 @@
 
 ![Easy Delivery Co running with this mod](https://raw.githubusercontent.com/itsloopyo/easy-delivery-co-headtracking/main/assets/readme-clip.gif)
 
-An unofficial head tracking mod for Easy Delivery Co that moves the camera with your head while your mouse or controller keeps steering, driven by OpenTrack over UDP, with no VR headset required.
-
-> **Settings have moved.** This version keeps its settings in `BepInEx\config\CameraUnlock.ini`.
-> The first time it starts it reads your settings from the old
-> `BepInEx\config\com.cameraunlock.easydeliveryco.headtracking.cfg` into the new file, and leaves
-> the old file as it was. BepInEx's ConfigurationManager no longer lists the settings: edit
-> `CameraUnlock.ini` with any text editor. [Configuration](#configuration) has the details.
+An unofficial head tracking mod for Easy Delivery Co that moves the camera with your head while your mouse or controller keeps steering, driven by a webcam, phone, or any OpenTrack compatible tracker, with no VR headset required.
 
 ## Features
 
-- **Decoupled look and aim** - head tracking moves the camera; steering stays on your mouse/controller
-- **6DOF positional tracking** - lean and peek with head position
+- **6DOF tracking** - yaw, pitch and roll, plus lean and peek with head position
 - **Works with any OpenTrack compatible tracker** - free options available for PC, iOS and Android
 
 ## Requirements
@@ -300,7 +293,7 @@ Download the new release and run `install.cmd` again. Your `CameraUnlock.ini` is
 
 ## Uninstalling
 
-Run `uninstall.cmd` from the release folder. This removes the mod DLLs and leaves `CameraUnlock.ini` and the old `.cfg` in place. BepInEx is only removed if the installer put it there. Use `uninstall.cmd /force` to remove BepInEx anyway.
+Run `uninstall.cmd` from the release folder. This removes the mod DLLs and leaves your settings in place. BepInEx is only removed if the installer put it there. Use `uninstall.cmd /force` to remove BepInEx anyway.
 
 ## Building from Source
 
