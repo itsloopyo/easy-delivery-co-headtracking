@@ -197,7 +197,7 @@ namespace EasyDeliveryCoHeadTracking.Core
                     _config.LocalSmoothing,
                     _config.RemoteSmoothing,
                     invertX: true, invertY: false, invertZ: false),
-                TrackerPivotForward = _config.TrackerPivotForward
+                TrackerPivotForward = EasyDeliveryCoConfig.TrackerPivotForwardMetres
             };
             _positionInterpolator = new PositionInterpolator();
         }

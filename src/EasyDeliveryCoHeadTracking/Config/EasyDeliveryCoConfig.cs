@@ -11,6 +11,12 @@ namespace EasyDeliveryCoHeadTracking.Config
         /// <summary>The game's name as data/games.json spells it.</summary>
         public const string DisplayName = "Easy Delivery Co";
 
+        /// <summary>
+        /// The neck pivot distance in metres every published build shipped. Not a setting: the
+        /// tracker is authoritative over the pivot, and this keeps the lean compensation players had.
+        /// </summary>
+        public const float TrackerPivotForwardMetres = 0.08f;
+
         public bool ShowStartupNotification { get; set; } = true;
 
         public bool ShowConnectionNotifications { get; set; } = true;
@@ -30,16 +36,12 @@ namespace EasyDeliveryCoHeadTracking.Config
                     ConfigConcepts.PositionLimitYDown,
                     ConfigConcepts.PositionLimitZ,
                     ConfigConcepts.PositionLimitZBack,
-                    ConfigConcepts.TrackerPivotForward,
                     ConfigConcepts.ToggleKey,
                     ConfigConcepts.CycleTrackingModeKey,
                     ConfigConcepts.YawModeKey)
                 .Select(ConfigConcepts.WorldSpaceYaw).Writable()
                 .Select(ConfigConcepts.RotationEnabled).Writable()
                 .Select(ConfigConcepts.PositionEnabled).Writable()
-                .Select(ConfigConcepts.TrackerPivotForward)
-                .Comment("Metres from the pivot of your neck forward to the point the tracker follows.\n" +
-                         "Used to remove the lean that turning your head adds. 0 turns it off.")
                 .Local("Notifications", "ShowStartupNotification", c => c.ShowStartupNotification,
                     (c, v) => c.ShowStartupNotification = v, new BoolCodec(),
                     "true: show whether head tracking is on, and its hotkeys, when the game starts.")

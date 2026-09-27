@@ -70,7 +70,7 @@ namespace EasyDeliveryCoHeadTracking.Tests
         }
 
         [Fact]
-        public void DefaultsKeepTheShippedBehaviourButThePivot()
+        public void DefaultsKeepTheShippedBehaviour()
         {
             var config = new EasyDeliveryCoConfig();
             EasyDeliveryCoConfig.Table().Apply(CanonicalIni.Parse(new byte[0]), config);
@@ -89,9 +89,8 @@ namespace EasyDeliveryCoHeadTracking.Tests
             Assert.Equal(0.10f, config.Position.LimitZBack);
             Assert.True(config.ShowStartupNotification);
             Assert.True(config.ShowConnectionNotifications);
-            // TrackerPivotForward is global and follows Defaults.ini, whose built-in value is the
-            // schema's 0.0. Earlier builds shipped 0.08; a player's .cfg carries that value over.
-            Assert.Equal(0.0f, config.TrackerPivotForward);
+            // The pivot every published build shipped, folded into code.
+            Assert.Equal(EasyDeliveryCoConfig.TrackerPivotForwardMetres, new Legacy.LegacyConfig().TrackerPivotForward);
         }
 
         [Fact]
@@ -118,17 +117,14 @@ namespace EasyDeliveryCoHeadTracking.Tests
                 string defaults = DefaultsPath(dir.Path);
                 string text = File.ReadAllText(defaults);
                 Assert.Contains("UdpPort=4242", text);
-                Assert.Contains("TrackerPivotForward=0.0", text);
                 Assert.Contains("WorldSpaceYaw=true", text);
                 File.WriteAllText(defaults, text.Replace("UdpPort=4242", "UdpPort=4343")
-                    .Replace("TrackerPivotForward=0.0", "TrackerPivotForward=0.08")
                     .Replace("WorldSpaceYaw=true", "WorldSpaceYaw=false"));
 
                 ConfigLoadResult<EasyDeliveryCoConfig> next = Owner(dir.Path).Load();
 
                 Assert.Equal(ConfigLoadStatus.Canonical, next.Status);
                 Assert.Equal(4343, next.Config.UdpPort);
-                Assert.Equal(0.08f, next.Config.TrackerPivotForward);
                 Assert.False(next.Config.WorldSpaceYaw);
             }
         }

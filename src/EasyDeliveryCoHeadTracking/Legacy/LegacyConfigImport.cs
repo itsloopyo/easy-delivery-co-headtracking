@@ -50,33 +50,46 @@ namespace EasyDeliveryCoHeadTracking.Legacy
             LegacyConfig legacy = LegacyConfigReader.Read(legacyFile, out found);
             var dropped = new List<DroppedValue>();
             var poseShaping = new List<PoseShapingValue>();
-            Map(legacy, config, dropped, poseShaping);
-            return found ? ImportResult.Imported(dropped, poseShaping) : ImportResult.Absent(dropped, poseShaping);
+            var followsDefaultsIni = new LegacyFollowsDefaultsIni();
+            Map(legacy, config, dropped, poseShaping, followsDefaultsIni);
+            return found
+                ? ImportResult.Imported(dropped, poseShaping, followsDefaultsIni.Concepts)
+                : ImportResult.Absent(dropped, poseShaping, followsDefaultsIni.Concepts);
         }
 
         /// <summary>
         /// Every float the reader returns is inside its AcceptableValueRange, which BepInEx clamps
         /// NaN and infinity into, so no value reaches here that normalisation N2 would change.
+        /// A row whose legacy value equals what every published build shipped, the frozen
+        /// <see cref="LegacyConfig"/> defaults, is left to Defaults.ini.
         /// </summary>
         public static void Map(LegacyConfig legacy, EasyDeliveryCoConfig config, List<DroppedValue> dropped,
-            List<PoseShapingValue> poseShaping)
+            List<PoseShapingValue> poseShaping, LegacyFollowsDefaultsIni followsDefaultsIni)
         {
+            var shipped = new LegacyConfig();
+
             config.EnableOnStartup = legacy.EnabledOnStartup;
+            followsDefaultsIni.Setting(ConfigConcepts.EnableOnStartup, legacy.EnabledOnStartup, shipped.EnabledOnStartup);
             config.ShowStartupNotification = legacy.ShowStartupNotification;
             config.WorldSpaceYaw = legacy.WorldSpaceYaw;
+            followsDefaultsIni.Setting(ConfigConcepts.WorldSpaceYaw, legacy.WorldSpaceYaw, shipped.WorldSpaceYaw);
             config.ShowConnectionNotifications = legacy.ShowConnectionNotifications;
             config.UdpPort = legacy.UDPPort;
+            followsDefaultsIni.Setting(ConfigConcepts.UdpPort, legacy.UDPPort, shipped.UDPPort);
 
-            config.ToggleKeyName = HotkeyList(legacy.ToggleKey, KeyCode.Y);
-            config.CycleTrackingModeKeyName = HotkeyList(legacy.CycleTrackingModeKey, KeyCode.G);
-            config.YawModeKeyName = HotkeyList(legacy.YawModeKey, KeyCode.H);
+            config.ToggleKeyName = HotkeyList(legacy.ToggleKey, KeyCode.Y, "ToggleKey", dropped);
+            followsDefaultsIni.Setting(ConfigConcepts.ToggleKey, legacy.ToggleKey, shipped.ToggleKey);
+            config.CycleTrackingModeKeyName = HotkeyList(legacy.CycleTrackingModeKey, KeyCode.G, "CycleTrackingModeKey", dropped);
+            followsDefaultsIni.Setting(ConfigConcepts.CycleTrackingModeKey, legacy.CycleTrackingModeKey, shipped.CycleTrackingModeKey);
+            config.YawModeKeyName = HotkeyList(legacy.YawModeKey, KeyCode.H, "YawModeKey", dropped);
+            followsDefaultsIni.Setting(ConfigConcepts.YawModeKey, legacy.YawModeKey, shipped.YawModeKey);
 
             // The reticle toggle is gone for everyone who had it bound, and the mod draws no aim
             // dot. ShowReticle=false, as it shipped, is what the mod does now, so only a player who
             // turned the dot on loses a choice.
             if (legacy.ToggleReticleKey != KeyCode.None)
             {
-                dropped.Add(new DroppedValue(DropRule.Reticle, "Keybindings", "ToggleReticleKey", KeyText((int)legacy.ToggleReticleKey)));
+                dropped.Add(new DroppedValue(DropRule.Reticle, "Keybindings", "ToggleReticleKey", legacy.ToggleReticleKey.ToString()));
             }
             if (legacy.ShowReticle)
             {
@@ -94,9 +107,12 @@ namespace EasyDeliveryCoHeadTracking.Legacy
             // started from rotation and position, so the switch set the startup mode.
             config.RotationEnabled = true;
             config.PositionEnabled = legacy.PositionEnabled;
+            followsDefaultsIni.TrackingMode(legacy.PositionEnabled, shipped.PositionEnabled);
 
             config.LocalSmoothing = legacy.LocalSmoothing;
+            followsDefaultsIni.Setting(ConfigConcepts.LocalSmoothing, legacy.LocalSmoothing, shipped.LocalSmoothing);
             config.RemoteSmoothing = legacy.RemoteSmoothing;
+            followsDefaultsIni.Setting(ConfigConcepts.RemoteSmoothing, legacy.RemoteSmoothing, shipped.RemoteSmoothing);
             PositionSettings p = config.Position;
             // v0.2.0 built its limits with PositionSettings.Symmetric, so PositionLimitY was the
             // downward limit too.
@@ -105,33 +121,35 @@ namespace EasyDeliveryCoHeadTracking.Legacy
                 legacy.PositionLimitX, legacy.PositionLimitY, legacy.PositionLimitY, legacy.PositionLimitZ, legacy.PositionLimitZBack,
                 legacy.LocalSmoothing, legacy.RemoteSmoothing,
                 p.InvertX, p.InvertY, p.InvertZ);
+            followsDefaultsIni.Setting(ConfigConcepts.PositionLimitX, legacy.PositionLimitX, shipped.PositionLimitX);
+            followsDefaultsIni.Setting(ConfigConcepts.PositionLimitY, legacy.PositionLimitY, shipped.PositionLimitY);
+            followsDefaultsIni.Setting(ConfigConcepts.PositionLimitYDown, legacy.PositionLimitY, shipped.PositionLimitY);
+            followsDefaultsIni.Setting(ConfigConcepts.PositionLimitZ, legacy.PositionLimitZ, shipped.PositionLimitZ);
+            followsDefaultsIni.Setting(ConfigConcepts.PositionLimitZBack, legacy.PositionLimitZBack, shipped.PositionLimitZBack);
 
-            config.TrackerPivotForward = legacy.TrackerPivotForward;
+            LegacyTrackerPivot.Record(legacy.TrackerPivotForward, shipped.TrackerPivotForward, "Position", "TrackerPivotForward", dropped);
         }
 
         /// <summary>
-        /// The keys v0.2.0 fired an action on: the configured key, unless it was None, and the
-        /// Ctrl+Shift chord that InputHandler checked beside it. A key code Unity names no key for
-        /// (a number in the .cfg, which BepInEx's enum parse accepts) is written as that number,
-        /// which no hotkey list reads, so the owner defers the import and says which line.
+        /// The keys v0.2.0 fired an action on: the configured key, unless it was None or a Ctrl,
+        /// Shift or Alt key alone (N3, dropped and logged), and the Ctrl+Shift chord that
+        /// InputHandler checked beside it. A key code Unity names no key for (a number in the .cfg,
+        /// which BepInEx's enum parse accepts) is written as that number, which no hotkey list
+        /// reads, so the owner defers the import and says which line.
         /// </summary>
-        public static string HotkeyList(KeyCode primary, KeyCode chordLetter)
+        public static string HotkeyList(KeyCode primary, KeyCode chordLetter, string key, List<DroppedValue> dropped)
         {
             string chord = KeyBindings.Format(new[] { new KeyBinding(KeyModifiers.Ctrl | KeyModifiers.Shift, (int)chordLetter) });
-            if (primary == KeyCode.None) return chord;
-            return KeyText((int)primary) + ", " + chord;
-        }
-
-        private static string KeyText(int unityKeyCode)
-        {
+            string primaryText;
             try
             {
-                return KeyBindings.Format(new[] { new KeyBinding(KeyModifiers.None, unityKeyCode) });
+                primaryText = LegacyNormalisations.KeyCodeToBindings((int)primary, "Keybindings", key, dropped);
             }
             catch (ArgumentException)
             {
-                return unityKeyCode.ToString(CultureInfo.InvariantCulture);
+                primaryText = ((int)primary).ToString(CultureInfo.InvariantCulture);
             }
+            return primaryText.Length == 0 ? chord : primaryText + ", " + chord;
         }
     }
 }

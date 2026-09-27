@@ -84,6 +84,28 @@ namespace EasyDeliveryCoHeadTracking.Tests.Differential
             yield return new DifferentialInput("empty file", new byte[0]);
             foreach (DifferentialInput input in FirstRuns()) yield return input;
             foreach (DifferentialInput input in Corpus()) yield return input;
+            foreach (DifferentialInput input in ModifierKeys()) yield return input;
+        }
+
+        /// <summary>
+        /// Each hotkey of the newest first-run file bound to each Ctrl, Shift or Alt key alone,
+        /// which normalisation N3 unbinds. The mutation corpus binds none.
+        /// </summary>
+        public static IEnumerable<DifferentialInput> ModifierKeys()
+        {
+            string text = Encoding.ASCII.GetString(NewestFirstRun());
+            var lines = new[] { "ToggleKey = End", "ToggleReticleKey = Insert", "CycleTrackingModeKey = PageUp", "YawModeKey = PageDown" };
+            var modifiers = new[] { KeyCode.RightShift, KeyCode.LeftShift, KeyCode.RightControl, KeyCode.LeftControl, KeyCode.RightAlt, KeyCode.LeftAlt };
+            foreach (string line in lines)
+            {
+                if (!text.Contains("\n" + line + "\r\n")) throw new InvalidOperationException("v0.2.0.cfg has no line " + line);
+                string key = line.Substring(0, line.IndexOf(' '));
+                foreach (KeyCode modifier in modifiers)
+                {
+                    yield return new DifferentialInput("modifier [Keybindings] " + key + " = " + modifier,
+                        Encoding.ASCII.GetBytes(text.Replace("\n" + line + "\r\n", "\n" + key + " = " + modifier + "\r\n")));
+                }
+            }
         }
 
         /// <summary>

@@ -5,11 +5,13 @@
 ### Changed
 
 - Settings move to `BepInEx\config\CameraUnlock.ini`. Earlier versions of the mod kept these settings in `com.cameraunlock.easydeliveryco.headtracking.cfg`, in the same folder. The first time this version starts and finds no `CameraUnlock.ini`, it reads your settings from `com.cameraunlock.easydeliveryco.headtracking.cfg` and writes them into `CameraUnlock.ini`. It never changes `com.cameraunlock.easydeliveryco.headtracking.cfg`, and does not read it again while `CameraUnlock.ini` exists.
-- A setting that the defaults the README shows set to `default` is written as `default` when the value imported for it equals its default at that start, which is the value `Defaults.ini` gives it, or the built-in value where `Defaults.ini` gives none. It then follows `Defaults.ini`. Every other setting is written with the value imported for it.
+- A setting that the defaults the README shows set to `default` is written as `default` when you never changed it from the default earlier versions used, because `com.cameraunlock.easydeliveryco.headtracking.cfg` does not hold it or holds that default. It then follows `Defaults.ini`, so it takes the value `Defaults.ini` gives it, or the built-in value where `Defaults.ini` gives none, which can differ from the default earlier versions used. A setting you changed is written with the value imported for it, or as `default` where that value equals its default at that start.
 - `RotationEnabled` and `PositionEnabled` are one setting here, the tracking mode, so both are written as `default` or neither is.
 - Comments, and keys the mod never read, are not carried over. Nor are these, where your old file had them:
   - A sensitivity, scale, deadzone, response curve or axis inversion you changed from its default. Set these in your tracker instead.
   - Reticle settings, and a key that toggled the reticle.
+  - A neck pivot distance you changed from its default. The neck pivot is not a setting now.
+  - A hotkey set to Ctrl, Shift or Alt on its own. That key goes down before the key of any chord made with it, so the hotkey is left unbound, and it keeps its Ctrl+Shift chord.
 - An older version of the mod reads `com.cameraunlock.easydeliveryco.headtracking.cfg` and never reads `CameraUnlock.ini`, so a setting you change after updating is not in `com.cameraunlock.easydeliveryco.headtracking.cfg`.
 - Deleting only `CameraUnlock.ini` makes the next start read `com.cameraunlock.easydeliveryco.headtracking.cfg` again. To go back to the defaults, replace everything in `CameraUnlock.ini` with the defaults the README shows. Every setting they set to `default` then follows `Defaults.ini`.
 - BepInEx's ConfigurationManager no longer lists these settings. Edit `BepInEx\config\CameraUnlock.ini` with any text editor.
@@ -17,7 +19,6 @@
 - A hotkey bound to a plain key no longer fires while Ctrl and Shift are both held, so Ctrl+Shift with that key reaches only a binding that names the chord.
 - On Linux and macOS without Wine or Proton, this version reads its settings and saves none: it creates no `CameraUnlock.ini`, reads your settings from `com.cameraunlock.easydeliveryco.headtracking.cfg` again at every start while there is no `CameraUnlock.ini`, and a change made in game lasts until the game closes.
 - The tracking mode (`Page Up`) and the yaw mode (`Page Down`) you pick are saved to `CameraUnlock.ini` and are what the next start begins with. Earlier versions started every session from the file's settings. `End` still changes the current session only.
-- `TrackerPivotForward` in a new `CameraUnlock.ini` is `default`, whose built-in value is 0.0, where earlier versions started at 0.08. A setting imported from `com.cameraunlock.easydeliveryco.headtracking.cfg` keeps the value it held there.
 
 ### Added
 
@@ -28,6 +29,7 @@
 ### Removed
 
 - The aim dot, which earlier versions drew only with `ShowReticle` on or after `Insert` turned it on, with the key that toggled it (`Insert`, `Ctrl+Shift+U`) and its settings (`ShowReticle`, `ToggleReticleKey`).
+- The neck pivot setting (`TrackerPivotForward`). The mod uses 0.08 metres, the value earlier versions shipped, and a distance you changed from it is not carried over.
 - The sensitivity, scale, deadzone, response curve and axis inversion settings (`YawSensitivity`, `PitchSensitivity`, `RollSensitivity`, `PositionSensitivityX`, `PositionSensitivityY`, `PositionSensitivityZ`). Set these in your tracker app instead.
 - With these settings at their shipped defaults the camera moves as it did before.
 
