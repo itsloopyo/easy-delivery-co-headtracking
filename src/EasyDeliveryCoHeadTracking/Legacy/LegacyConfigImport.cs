@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using BepInEx;
 using BepInEx.Configuration;
@@ -134,21 +133,13 @@ namespace EasyDeliveryCoHeadTracking.Legacy
         /// The keys v0.2.0 fired an action on: the configured key, unless it was None or a Ctrl,
         /// Shift or Alt key alone (N3, dropped and logged), and the Ctrl+Shift chord that
         /// InputHandler checked beside it. A key code Unity names no key for (a number in the .cfg,
-        /// which BepInEx's enum parse accepts) is written as that number, which no hotkey list
-        /// reads, so the owner defers the import and says which line.
+        /// which BepInEx's enum parse accepts) is unbound the same way, recorded as
+        /// KeyCodeOutOfRange (N1).
         /// </summary>
         public static string HotkeyList(KeyCode primary, KeyCode chordLetter, string key, List<DroppedValue> dropped)
         {
             string chord = KeyBindings.Format(new[] { new KeyBinding(KeyModifiers.Ctrl | KeyModifiers.Shift, (int)chordLetter) });
-            string primaryText;
-            try
-            {
-                primaryText = LegacyNormalisations.KeyCodeToBindings((int)primary, "Keybindings", key, dropped);
-            }
-            catch (ArgumentException)
-            {
-                primaryText = ((int)primary).ToString(CultureInfo.InvariantCulture);
-            }
+            string primaryText = LegacyNormalisations.KeyCodeToBindings((int)primary, "Keybindings", key, dropped);
             return primaryText.Length == 0 ? chord : primaryText + ", " + chord;
         }
     }
