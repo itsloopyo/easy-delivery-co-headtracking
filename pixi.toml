@@ -24,17 +24,19 @@ build = { cmd = "dotnet build src/EasyDeliveryCoHeadTracking/EasyDeliveryCoHeadT
 # declared as a field, or the reverse) compiles cleanly and only fails in
 # game. Needs the game installed; skips and succeeds without it.
 verify-refs = { cmd = "powershell -ExecutionPolicy Bypass -File cameraunlock-core/scripts/verify-assembly-refs.ps1 -GameId easy-delivery-co -BuildDir src/EasyDeliveryCoHeadTracking/bin/Release", depends-on = ["build"] }
-# The config tests, among them the differential test in tests/config_differential, which holds
-# the legacy import to the v0.2.0 reader it replaces on every published build's first-run file
-# and on core's mutation corpus, then core's canonical config lint over the committed file and
-# every file the test migrated.
-test = { cmd = "dotnet test tests/EasyDeliveryCoHeadTracking.Tests/EasyDeliveryCoHeadTracking.Tests.csproj -c Release && node tests/config_differential/lint-migrated.mjs tests/EasyDeliveryCoHeadTracking.Tests/bin/Release/net48/migrated", depends-on = ["build"] }
+# The config tests, all but the differential test.
+test-unit = { cmd = "dotnet test tests/EasyDeliveryCoHeadTracking.Tests/EasyDeliveryCoHeadTracking.Tests.csproj -c Release --filter FullyQualifiedName!~Differential", depends-on = ["build"] }
+# The differential test in tests/config_differential, which holds the legacy import to the v0.2.0
+# reader it replaces on every published build's first-run file and on core's mutation corpus, then
+# core's canonical config lint over the committed file and every file the test migrated.
+test-differential = { cmd = "dotnet test tests/EasyDeliveryCoHeadTracking.Tests/EasyDeliveryCoHeadTracking.Tests.csproj -c Release --filter FullyQualifiedName~Differential && node tests/config_differential/lint-migrated.mjs tests/EasyDeliveryCoHeadTracking.Tests/bin/Release/net48/migrated", depends-on = ["build"] }
+test = { depends-on = ["test-unit", "test-differential"] }
 # Rewrites config/CameraUnlock.ini from the config table after a change to a row, a comment or a
-# default. The render test compares the two on every `pixi run test`, so the committed file cannot
-# drift from the code.
+# default. The render test compares the two on every `pixi run test-unit`, so the committed file
+# cannot drift from the code.
 render-config = { cmd = "dotnet test tests/EasyDeliveryCoHeadTracking.Tests/EasyDeliveryCoHeadTracking.Tests.csproj -c Release --filter FullyQualifiedName~ConfigTests.CommittedFileIsTheRenderedDefaults && node cameraunlock-core/scripts/encode-seed.mjs", env = { CAMERAUNLOCK_RENDER_CONFIG = "write" }, depends-on = ["build"] }
 install = { cmd = "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1 Release", depends-on = ["build"] }
-package = { cmd = "powershell -ExecutionPolicy Bypass -File scripts/package-release.ps1", depends-on = ["test"] }
+package = { cmd = "powershell -ExecutionPolicy Bypass -File scripts/package-release.ps1", depends-on = ["test-unit"] }
 uninstall = "scripts\\uninstall.cmd"
 clean = "dotnet clean src/EasyDeliveryCoHeadTracking/EasyDeliveryCoHeadTracking.csproj"
 release = "powershell -ExecutionPolicy Bypass -File scripts/release.ps1"
