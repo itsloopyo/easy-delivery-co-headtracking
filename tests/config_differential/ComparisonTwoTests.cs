@@ -236,6 +236,9 @@ namespace EasyDeliveryCoHeadTracking.Tests.Differential
                 follows("PositionLimitYDown", old.PositionLimitY == 0.20f);
                 follows("PositionLimitZ", old.PositionLimitZ == 0.40f);
                 follows("PositionLimitZBack", old.PositionLimitZBack == 0.10f);
+                // No published build had lean collision.
+                follows("CollisionEnabled", true);
+                follows("CollisionReleaseSmoothing", true);
                 string[] followed = result.FollowsDefaultsIni.Select(c => c.Key).OrderBy(k => k, StringComparer.Ordinal).ToArray();
                 if (!followed.SequenceEqual(expectedFollows.OrderBy(k => k, StringComparer.Ordinal)))
                     failures.Add(input.Name + ": follows Defaults.ini " + string.Join(", ", followed));

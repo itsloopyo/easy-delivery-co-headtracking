@@ -127,6 +127,10 @@ namespace EasyDeliveryCoHeadTracking.Legacy
             followsDefaultsIni.Setting(ConfigConcepts.PositionLimitZBack, legacy.PositionLimitZBack, shipped.PositionLimitZBack);
 
             LegacyTrackerPivot.Record(legacy.TrackerPivotForward, shipped.TrackerPivotForward, "Position", "TrackerPivotForward", dropped);
+
+            // No published build had lean collision, so no player chose these.
+            followsDefaultsIni.Setting(ConfigConcepts.CollisionEnabled, true);
+            followsDefaultsIni.Setting(ConfigConcepts.CollisionReleaseSmoothing, true);
         }
 
         /// <summary>

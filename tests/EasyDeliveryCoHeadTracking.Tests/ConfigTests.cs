@@ -200,7 +200,7 @@ namespace EasyDeliveryCoHeadTracking.Tests
         public void TheFileHasNoRowTheModDoesNotUse()
         {
             string text = Encoding.ASCII.GetString(File.ReadAllBytes(Committed()));
-            foreach (string gone in new[] { "Sensitivity", "Reticle", "TrueFreeLook", "Collision", "Light" })
+            foreach (string gone in new[] { "Sensitivity", "Reticle", "TrueFreeLook", "Light" })
             {
                 Assert.DoesNotContain(gone, text);
             }

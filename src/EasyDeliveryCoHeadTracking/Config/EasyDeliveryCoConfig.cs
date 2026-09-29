@@ -36,12 +36,18 @@ namespace EasyDeliveryCoHeadTracking.Config
                     ConfigConcepts.PositionLimitYDown,
                     ConfigConcepts.PositionLimitZ,
                     ConfigConcepts.PositionLimitZBack,
+                    ConfigConcepts.CollisionEnabled,
+                    ConfigConcepts.CollisionMargin,
+                    ConfigConcepts.CollisionReleaseSmoothing,
                     ConfigConcepts.ToggleKey,
                     ConfigConcepts.CycleTrackingModeKey,
                     ConfigConcepts.YawModeKey)
                 .Select(ConfigConcepts.WorldSpaceYaw).Writable()
                 .Select(ConfigConcepts.RotationEnabled).Writable()
                 .Select(ConfigConcepts.PositionEnabled).Writable()
+                .Select(ConfigConcepts.CollisionMargin)
+                .Comment("How far, in metres, the view is held off a wall when you lean into it.\n" +
+                         "The mod raises it where the corners of the camera's near clip plane need more room.")
                 .Local("Notifications", "ShowStartupNotification", c => c.ShowStartupNotification,
                     (c, v) => c.ShowStartupNotification = v, new BoolCodec(),
                     "true: show whether head tracking is on, and its hotkeys, when the game starts.")

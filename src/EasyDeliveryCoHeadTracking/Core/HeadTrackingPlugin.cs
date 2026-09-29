@@ -14,6 +14,7 @@ using CameraUnlock.Core.Unity.UI;
 using EasyDeliveryCoHeadTracking.Camera;
 using EasyDeliveryCoHeadTracking.Config;
 using EasyDeliveryCoHeadTracking.Legacy;
+using UnityEngine;
 
 namespace EasyDeliveryCoHeadTracking.Core
 {
@@ -27,6 +28,8 @@ namespace EasyDeliveryCoHeadTracking.Core
         private const float StartupNotificationSeconds = 4f;
         private const float StatusNotificationSeconds = 1.5f;
         private const float ConfigNotificationSeconds = 8f;
+        private const float LeanLogIntervalSeconds = 10f;
+        private const float LeanHeartbeatSeconds = 60f;
 
         public static HeadTrackingPlugin Instance { get; private set; }
         public new ManualLogSource Logger => base.Logger;
@@ -47,6 +50,15 @@ namespace EasyDeliveryCoHeadTracking.Core
         private bool _wasReceiving;
         private TrackingMode _trackingMode;
         private bool _initialized;
+
+        private LeanTrace _leanTrace;
+        private bool _loggedLeanLive;
+        private int _leanContactFrames;
+        private int _leanFailedFrames;
+        private int _leanQueriesLogged;
+        private string _leanBlocker;
+        private float _nextLeanLogTime;
+        private float _nextLeanHeartbeatTime;
 
         // Cached so the connection locality is only pushed into the processors when the
         // tracker actually switches between a same-machine and a remote source.
@@ -216,7 +228,34 @@ namespace EasyDeliveryCoHeadTracking.Core
             // The pair always names a mode: the table reads a pair that names none as its default.
             // Seeding it from the file makes the first cycle press move on from the saved mode.
             SetTrackingMode(TrackingModeChannels.Decode(_config.RotationEnabled, _config.PositionEnabled).Value);
+            BuildLeanClamp();
             _cameraController.Enable();
+        }
+
+        /// <summary>
+        /// Keeps a lean out of the level: the controller sweeps from the clean eye toward where
+        /// the head wants to go and cuts the offset to what fits. The mask leaves out the Players
+        /// layer, which holds the player's body, as the game's own camera avoidance
+        /// (sCameraController.ObjectAvoidance) does. Unlike that avoidance it keeps the Car layer:
+        /// the truck is a surface a lean must not pass through.
+        /// </summary>
+        private void BuildLeanClamp()
+        {
+            if (!_config.CollisionEnabled)
+            {
+                Logger.LogInfo("Lean collision is off (CollisionEnabled=false)");
+                return;
+            }
+
+            int mask = Physics.DefaultRaycastLayers;
+            int players = LayerMask.NameToLayer("Players");
+            if (players >= 0)
+                mask &= ~(1 << players);
+            else
+                Logger.LogWarning("Layer Players not found; a lean can be blocked by the player's own body");
+
+            _leanTrace = new LeanTrace(_config.CollisionMargin, mask);
+            _cameraController.LeanQuery = _leanTrace.Query;
         }
 
         private void BuildGameStateDetector()
@@ -251,6 +290,71 @@ namespace EasyDeliveryCoHeadTracking.Core
             _notificationUI.Update();
             MonitorConnectionState();
             MonitorConnectionLocality();
+            if (_leanTrace != null)
+                LogLeanClamp();
+        }
+
+        // The standoff follows the camera's projection, so a zoom or FOV change moves the
+        // near-plane corners it has to clear.
+        private void UpdateLeanStandoff()
+        {
+            UnityEngine.Camera cam = _cameraController.MainCamera;
+            if (cam == null) return;
+            _cameraController.LeanClamp.Settings = new LeanClampSettings
+            {
+                Skin = _leanTrace.UpdateStandoff(cam),
+                ReleaseSmoothing = _config.CollisionReleaseSmoothing
+            };
+        }
+
+        /// <summary>
+        /// Counts rather than transition lines: a lean held against a doorframe crosses the
+        /// contact edge several times a second as the head jitters. The heartbeat is what tells
+        /// "the sweep runs and the room is open" from "the sweep is not running".
+        /// </summary>
+        private void LogLeanClamp()
+        {
+            LeanClamp clamp = _cameraController.LeanClamp;
+            if (!_loggedLeanLive && _leanTrace.Queries > 0)
+            {
+                _loggedLeanLive = true;
+                UnityEngine.Camera cam = _cameraController.MainCamera;
+                Logger.LogInfo(string.Format(
+                    "Lean collision is running: standoff {0:F3}m (CollisionMargin {1:F3}m, near clip {2:F3}m, near-plane corner {3:F3}m)",
+                    _leanTrace.Standoff, _config.CollisionMargin,
+                    cam != null ? cam.nearClipPlane : 0f, _leanTrace.NearPlaneCorner));
+            }
+
+            if (clamp.LastQueryFailed) _leanFailedFrames++;
+            if (clamp.InContact)
+            {
+                _leanContactFrames++;
+                Collider blocker = _leanTrace.LastBlocker;
+                if (blocker != null)
+                    _leanBlocker = blocker.name + " (layer " + LayerMask.LayerToName(blocker.gameObject.layer) + ")";
+            }
+
+            float now = Time.realtimeSinceStartup;
+            if (_leanContactFrames > 0 || _leanFailedFrames > 0)
+            {
+                if (now < _nextLeanLogTime) return;
+                _nextLeanLogTime = now + LeanLogIntervalSeconds;
+                _nextLeanHeartbeatTime = now + LeanHeartbeatSeconds;
+                if (_leanFailedFrames > 0)
+                    Logger.LogWarning($"Lean collision: the sweep could not run on {_leanFailedFrames} frames, so the lean passed through unclamped");
+                if (_leanContactFrames > 0)
+                    Logger.LogInfo($"Lean collision: cut the lean on {_leanContactFrames} frames, last against {_leanBlocker}");
+                _leanContactFrames = 0;
+                _leanFailedFrames = 0;
+                _leanQueriesLogged = _leanTrace.Queries;
+                return;
+            }
+
+            if (now < _nextLeanHeartbeatTime) return;
+            _nextLeanHeartbeatTime = now + LeanHeartbeatSeconds;
+            int queries = _leanTrace.Queries - _leanQueriesLogged;
+            _leanQueriesLogged = _leanTrace.Queries;
+            Logger.LogInfo($"Lean collision: {queries} sweeps since the last line, none blocked");
         }
 
         /// <summary>
@@ -279,6 +383,8 @@ namespace EasyDeliveryCoHeadTracking.Core
         {
             if (!_initialized) return;
             bool shouldTrack = TrackingEnabled && _gameStateDetector.IsGameplayActive;
+            if (_leanTrace != null)
+                UpdateLeanStandoff();
             _cameraController.ProcessFrame(shouldTrack);
         }
 
