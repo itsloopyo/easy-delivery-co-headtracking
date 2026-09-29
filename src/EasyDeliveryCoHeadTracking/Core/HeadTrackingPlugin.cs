@@ -56,6 +56,8 @@ namespace EasyDeliveryCoHeadTracking.Core
         private void Awake()
         {
             Instance = this;
+            // OnGUI draws with GUI.Label only, so the per-frame layout event is pure overhead.
+            useGUILayout = false;
             Logger.LogInfo($"{PluginName} v{PluginVersion} initializing...");
 
             // Built before the config loads, so the owner's status sink can reach the player
@@ -68,12 +70,14 @@ namespace EasyDeliveryCoHeadTracking.Core
             BuildGameStateDetector();
             BuildInput();
 
-            _receiver.Start(_config.UdpPort);
+            // A failed bind has already logged why and keeps retrying in the background.
+            bool listening = _receiver.Start(_config.UdpPort);
             TrackingEnabled = _config.EnableOnStartup;
             _initialized = true;
 
             Logger.LogInfo($"{PluginName} initialized. Tracking {(TrackingEnabled ? "enabled" : "disabled")}");
-            Logger.LogInfo($"Listening on UDP port {_config.UdpPort}");
+            if (listening)
+                Logger.LogInfo($"Listening on UDP port {_config.UdpPort}");
 
             // A config the owner could not load or create has already put its message up, and the
             // startup toast would replace it.
@@ -217,7 +221,7 @@ namespace EasyDeliveryCoHeadTracking.Core
 
         private void BuildGameStateDetector()
         {
-            _gameStateDetector = new GameStateDetector();
+            _gameStateDetector = new GameStateDetector(msg => Logger.LogWarning(msg));
             _gameStateDetector.StateChanged += OnGameStateChanged;
             _gameStateDetector.Initialize();
         }

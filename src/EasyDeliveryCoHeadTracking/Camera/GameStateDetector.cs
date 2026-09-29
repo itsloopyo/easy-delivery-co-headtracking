@@ -1,16 +1,24 @@
 using System;
+using System.Reflection;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 namespace EasyDeliveryCoHeadTracking.Camera
 {
     /// <summary>
-    /// Detects gameplay vs menus/loading/paused using heuristics.
-    /// Uses Time.timeScale, Cursor.lockState, and scene names.
+    /// Detects gameplay vs menus/loading/paused from scene names, the game's PauseSystem.paused
+    /// flag and Time.timeScale.
     /// </summary>
     public class GameStateDetector
     {
         private const float CheckIntervalSeconds = 0.1f;
+
+        private readonly Action<string> _logWarning;
+
+        // PauseSystem.paused is a public static bool the game sets on its pause menu and in
+        // photo mode. The cursor cannot stand in for it: PauseSystem hides the cursor whenever
+        // it is over the window, paused or not.
+        private FieldInfo _pausedField;
 
         private GameState _currentState = GameState.Unknown;
         private float _lastCheckTime;
@@ -32,8 +40,17 @@ namespace EasyDeliveryCoHeadTracking.Camera
         /// </summary>
         public bool IsGameplayActive => _currentState == GameState.Gameplay;
 
+        public GameStateDetector(Action<string> logWarning)
+        {
+            _logWarning = logWarning;
+        }
+
         public void Initialize()
         {
+            _pausedField = FindPausedField();
+            if (_pausedField == null)
+                _logWarning("PauseSystem.paused not found; the pause menu is detected by Time.timeScale only");
+
             SceneManager.sceneLoaded += OnSceneLoaded;
             UpdateState();
         }
@@ -45,10 +62,12 @@ namespace EasyDeliveryCoHeadTracking.Camera
 
         public void Update()
         {
-            if (Time.time - _lastCheckTime < CheckIntervalSeconds)
+            // Unscaled: the game pauses by setting timeScale to 0, which freezes Time.time, and a
+            // throttle on scaled time then never runs again to see the pause.
+            if (Time.unscaledTime - _lastCheckTime < CheckIntervalSeconds)
                 return;
 
-            _lastCheckTime = Time.time;
+            _lastCheckTime = Time.unscaledTime;
             UpdateState();
         }
 
@@ -84,10 +103,22 @@ namespace EasyDeliveryCoHeadTracking.Camera
             if (Time.timeScale < 0.01f)
                 return GameState.Paused;
 
-            if (Cursor.lockState == CursorLockMode.None && Cursor.visible)
+            if (_pausedField != null && (bool)_pausedField.GetValue(null))
                 return GameState.Paused;
 
             return GameState.Gameplay;
+        }
+
+        private static FieldInfo FindPausedField()
+        {
+            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                Type type = assembly.GetType("PauseSystem", false);
+                if (type == null) continue;
+                FieldInfo field = type.GetField("paused", BindingFlags.Public | BindingFlags.Static);
+                if (field != null && field.FieldType == typeof(bool)) return field;
+            }
+            return null;
         }
 
         private static GameState? ClassifyScene(string sceneName)
